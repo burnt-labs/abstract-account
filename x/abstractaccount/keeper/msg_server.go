@@ -54,6 +54,13 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		return nil, err
 	}
 
+	ms.k.Logger(ctx).Info("registering account",
+		"code id", req.CodeID,
+		"sender", senderAddr,
+		"msg", req.Msg,
+		"funds", req.Funds,
+		"salt", req.Salt)
+
 	contractAddr, data, err := ms.k.ck.Instantiate2(
 		ctx,
 		req.CodeID,
