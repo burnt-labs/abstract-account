@@ -1,33 +1,41 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"os"
 
-	dbm "github.com/cometbft/cometbft-db"
 	tmcfg "github.com/cometbft/cometbft/config"
+	dbm "github.com/cosmos/cosmos-db"
 
-	"github.com/cometbft/cometbft/libs/log"
+	"cosmossdk.io/log"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/debug"
 	"github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/server"
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
-	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtxconfig "github.com/cosmos/cosmos-sdk/x/auth/tx/config"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
 	"github.com/larry0x/abstract-account/simapp"
+	"github.com/larry0x/abstract-account/simapp/params"
 )
 
 func init() {
@@ -39,35 +47,44 @@ func main() {
 	rootCmd := NewRootCmd()
 
 	if err := svrcmd.Execute(rootCmd, "", simapp.DefaultNodeHome); err != nil {
-		switch e := err.(type) {
-		case server.ErrorCode:
-			os.Exit(e.Code)
-		default:
-			os.Exit(1)
-		}
+		fmt.Fprintln(rootCmd.OutOrStderr(), err)
+		os.Exit(1)
 	}
 }
 
+// NewRootCmd creates a new root command for simd. It is called once in the
+// main function.
 func NewRootCmd() *cobra.Command {
-	encCfg := simapp.MakeEncodingConfig()
+	// we "pre"-instantiate the application for getting the injected/configured encoding configuration
+	// note, this is not necessary when using app wiring, as depinject can be directly used (see root_v2.go)
+	tempApp := simapp.NewSimApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(simapp.DefaultNodeHome), nil, nil)
+	encodingConfig := params.EncodingConfig{
+		InterfaceRegistry: tempApp.InterfaceRegistry(),
+		Codec:             tempApp.AppCodec(),
+		TxConfig:          tempApp.TxConfig(),
+		Amino:             tempApp.LegacyAmino(),
+	}
 
 	initClientCtx := client.Context{}.
-		WithCodec(encCfg.Codec).
-		WithInterfaceRegistry(encCfg.InterfaceRegistry).
-		WithTxConfig(encCfg.TxConfig).
-		WithLegacyAmino(encCfg.Amino).
+		WithCodec(encodingConfig.Codec).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
+		WithTxConfig(encodingConfig.TxConfig).
+		WithLegacyAmino(encodingConfig.Amino).
 		WithInput(os.Stdin).
 		WithAccountRetriever(types.AccountRetriever{}).
 		WithHomeDir(simapp.DefaultNodeHome).
 		WithViper("") // In simapp, we don't use any prefix for env variables.
 
 	rootCmd := &cobra.Command{
-		Use:   "simd",
-		Short: "Simulation app",
+		Use:           "simd",
+		Short:         "simulation app",
+		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// set the default command outputs
 			cmd.SetOut(cmd.OutOrStdout())
 			cmd.SetErr(cmd.ErrOrStderr())
 
+			initClientCtx = initClientCtx.WithCmdContext(cmd.Context())
 			initClientCtx, err := client.ReadPersistentCommandFlags(initClientCtx, cmd.Flags())
 			if err != nil {
 				return err
@@ -78,104 +95,94 @@ func NewRootCmd() *cobra.Command {
 				return err
 			}
 
+			// This needs to go after ReadFromClientConfig, as that function
+			// sets the RPC client needed for SIGN_MODE_TEXTUAL. This sign mode
+			// is only available if the client is online.
+			if !initClientCtx.Offline {
+				enabledSignModes := append(tx.DefaultSignModes, signing.SignMode_SIGN_MODE_TEXTUAL)
+				txConfigOpts := tx.ConfigOptions{
+					EnabledSignModes:           enabledSignModes,
+					TextualCoinMetadataQueryFn: authtxconfig.NewGRPCCoinMetadataQueryFn(initClientCtx),
+				}
+				txConfig, err := tx.NewTxConfigWithOptions(
+					initClientCtx.Codec,
+					txConfigOpts,
+				)
+				if err != nil {
+					return err
+				}
+
+				initClientCtx = initClientCtx.WithTxConfig(txConfig)
+			}
+
 			if err := client.SetCmdClientContextHandler(initClientCtx, cmd); err != nil {
 				return err
 			}
 
-			customAppTemplate, customAppConfig := initAppConfig()
-			customTMConfig := initTendermintConfig()
-
-			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customTMConfig)
+			return server.InterceptConfigsPreRunHandler(cmd, "", nil, nil)
 		},
 	}
 
-	server.AddCommands(
-		rootCmd,
-		simapp.DefaultNodeHome,
-		createApp,
-		exportApp,
-		func(*cobra.Command) {},
-	)
-
-	rootCmd.AddCommand(
-		genesisCommand(),
-		queryCommand(),
-		txCommand(),
-		config.Cmd(),
-		debug.Cmd(),
-		genutilcli.InitCmd(simapp.ModuleBasics, simapp.DefaultNodeHome),
-		keys.Commands(simapp.DefaultNodeHome),
-		pruning.PruningCmd(createApp),
-		rpc.StatusCommand(),
-	)
+	initRootCmd(rootCmd, encodingConfig.TxConfig, tempApp.BasicModuleManager)
 
 	return rootCmd
+}
+
+// newApp creates the application
+func newApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	appOpts servertypes.AppOptions,
+) servertypes.Application {
+	baseappOptions := server.DefaultBaseappOptions(appOpts)
+	return simapp.NewSimApp(
+		logger, db, traceStore, true,
+		appOpts,
+		nil,
+		baseappOptions...,
+	)
+}
+
+func initRootCmd(
+	rootCmd *cobra.Command,
+	txConfig client.TxConfig,
+	basicManager module.BasicManager,
+) {
+	cfg := sdk.GetConfig()
+	cfg.Seal()
+
+	rootCmd.AddCommand(
+		genutilcli.InitCmd(basicManager, simapp.DefaultNodeHome),
+		debug.Cmd(),
+	)
+
+	server.AddCommandsWithStartCmdOptions(rootCmd, simapp.DefaultNodeHome, newApp, appExport, server.StartCmdOptions{
+		AddFlags: func(startCmd *cobra.Command) {
+		},
+	})
+
+	// add keybase, auxiliary RPC, query, genesis, and tx child commands
+	rootCmd.AddCommand(
+		server.StatusCommand(),
+		genesisCommand(txConfig, basicManager),
+		queryCommand(),
+		txCommand(),
+		keys.Commands(),
+	)
 }
 
 func initTendermintConfig() *tmcfg.Config {
 	return tmcfg.DefaultConfig()
 }
 
-func initAppConfig() (string, interface{}) {
-	type WASMConfig struct {
-		QueryGasLimit uint64 `mapstructure:"query_gas_limit"`
-		LruSize       uint64 `mapstructure:"lru_size"`
+// genesisCommand builds genesis-related `simd genesis` command. Users may provide application specific commands as a parameter
+func genesisCommand(txConfig client.TxConfig, basicManager module.BasicManager, cmds ...*cobra.Command) *cobra.Command {
+	cmd := genutilcli.Commands(txConfig, basicManager, simapp.DefaultNodeHome)
+
+	for _, subCmd := range cmds {
+		cmd.AddCommand(subCmd)
 	}
-
-	type CustomAppConfig struct {
-		serverconfig.Config
-
-		WASM WASMConfig `mapstructure:"wasm"`
-	}
-
-	srvCfg := serverconfig.DefaultConfig()
-	// The SDK's default minimum gas price is set to "" (empty value) inside
-	// app.toml. If left empty by validators, the node will halt on startup.
-	// However, the chain developer can set a default app.toml value for their
-	// validators here.
-	//
-	// In summary:
-	// - if you leave srvCfg.MinGasPrices = "", all validators MUST tweak their
-	//   own app.toml config,
-	// - if you set srvCfg.MinGasPrices non-empty, validators CAN tweak their
-	//   own app.toml to override, or use this default value.
-	//
-	// In simapp, we set the min gas prices to 0.
-	srvCfg.MinGasPrices = "0utoken"
-
-	customAppConfig := CustomAppConfig{
-		Config: *srvCfg,
-		WASM: WASMConfig{
-			LruSize:       1,
-			QueryGasLimit: 300000,
-		},
-	}
-
-	customAppTemplate := serverconfig.DefaultConfigTemplate + `
-[wasm]
-# This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
-query_gas_limit = 300000
-# This is the number of wasm vm instances we keep cached in memory for speed-up
-# Warning: this is currently unstable and may lead to crashes, best to keep for 0 unless testing locally
-lru_size = 0`
-
-	return customAppTemplate, customAppConfig
-}
-
-func genesisCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:                        "genesis",
-		Short:                      "Application's genesis-related subcommands",
-		DisableFlagParsing:         false,
-		SuggestionsMinimumDistance: 2,
-		RunE:                       client.ValidateCmd,
-	}
-
-	cmd.AddCommand(
-		genutilcli.ValidateGenesisCmd(simapp.ModuleBasics),
-		genutilcli.AddGenesisAccountCmd(simapp.DefaultNodeHome),
-	)
-
 	return cmd
 }
 
@@ -190,14 +197,13 @@ func queryCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		authcmd.GetAccountCmd(),
-		rpc.ValidatorCommand(),
-		rpc.BlockCommand(),
+		rpc.WaitTxCmd(),
+		server.QueryBlockCmd(),
 		authcmd.QueryTxsByEventsCmd(),
+		server.QueryBlocksCmd(),
 		authcmd.QueryTxCmd(),
+		server.QueryBlockResultsCmd(),
 	)
-
-	simapp.ModuleBasics.AddQueryCommands(cmd)
 
 	return cmd
 }
@@ -220,16 +226,17 @@ func txCommand() *cobra.Command {
 		authcmd.GetBroadcastCommand(),
 		authcmd.GetEncodeCommand(),
 		authcmd.GetDecodeCommand(),
-		authcmd.GetAuxToFeeCommand(),
+		authcmd.GetSimulateCmd(),
 	)
-
-	simapp.ModuleBasics.AddTxCommands(cmd)
 
 	return cmd
 }
 
 func createApp(
-	logger log.Logger, db dbm.DB, traceStore io.Writer, appOpts servertypes.AppOptions,
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	appOpts servertypes.AppOptions,
 ) servertypes.Application {
 	return simapp.NewSimApp(
 		logger,
@@ -247,4 +254,38 @@ func exportApp(
 	_ []string, _ servertypes.AppOptions, _ []string,
 ) (servertypes.ExportedApp, error) {
 	panic("UNIMPLEMENTED")
+}
+
+// appExport creates a new simapp (optionally at a given height) and exports state.
+func appExport(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	height int64,
+	forZeroHeight bool,
+	jailAllowedAddrs []string,
+	appOpts servertypes.AppOptions,
+	modulesToExport []string,
+) (servertypes.ExportedApp, error) {
+	viperAppOpts, ok := appOpts.(*viper.Viper)
+	if !ok {
+		return servertypes.ExportedApp{}, errors.New("appOpts is not viper.Viper")
+	}
+
+	// overwrite the FlagInvCheckPeriod
+	viperAppOpts.Set(server.FlagInvCheckPeriod, 1)
+	appOpts = viperAppOpts
+
+	var simApp *simapp.SimApp
+	if height != -1 {
+		simApp = simapp.NewSimApp(logger, db, traceStore, false, appOpts, nil, nil)
+
+		if err := simApp.LoadHeight(height); err != nil {
+			return servertypes.ExportedApp{}, err
+		}
+	} else {
+		simApp = simapp.NewSimApp(logger, db, traceStore, true, appOpts, nil, nil)
+	}
+
+	return simApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
 }
