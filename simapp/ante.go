@@ -1,7 +1,7 @@
 package simapp
 
 import (
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	storetypes "cosmossdk.io/core/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
@@ -20,7 +20,7 @@ type AnteHandlerOptions struct {
 	ante.HandlerOptions
 
 	WasmCfg               *wasmtypes.WasmConfig
-	TXCounterStoreKey     storetypes.StoreKey
+	TXCounterStoreKey     storetypes.KVStoreService
 	AbstractAccountKeeper abstractaccountkeeper.Keeper
 }
 

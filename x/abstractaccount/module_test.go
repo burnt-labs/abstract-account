@@ -43,7 +43,7 @@ func makeAfterTxDecorator(app *simapp.SimApp) abstractaccount.AfterTxDecorator {
 	return abstractaccount.NewAfterTxDecorator(app.AbstractAccountKeeper)
 }
 
-func makeMockAccount(keybase keyring.Keyring, uid string) (authtypes.AccountI, error) {
+func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (authtypes.AccountI, error) {
 	record, _, err := keybase.NewMnemonic(
 		uid,
 		keyring.English,
@@ -60,7 +60,7 @@ func makeMockAccount(keybase keyring.Keyring, uid string) (authtypes.AccountI, e
 		return nil, err
 	}
 
-	return authtypes.NewBaseAccount(pk.Address().Bytes(), pk, 0, 0), nil
+	return authtypes.NewBaseAccount(pk.Address().Bytes(), pk, number, 0), nil
 }
 
 type Signer struct {
@@ -136,12 +136,12 @@ func prepareTx(
 			PubKey:        signer.acc.GetPubKey(),
 		}
 
-		signBytes, err := app.TxConfig().SignModeHandler().GetSignBytes(signMode, signerData, txBuilder.GetTx())
+		signBytes, err := authsigning.GetSignBytesAdapter(ctx, app.TxConfig().SignModeHandler(), signMode, signerData, txBuilder.GetTx())
 		if err != nil {
 			return nil, err
 		}
 
-		sigBytes, _, err := keybase.Sign(signer.keyName, signBytes)
+		sigBytes, _, err := keybase.Sign(signer.keyName, signBytes, signMode)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func prepareTx(
 
 func storeCodeAndRegisterAccount(
 	ctx sdk.Context, app *simapp.SimApp, senderAddr sdk.AccAddress,
-	bytecode []byte, msg interface{}, funds sdk.Coins,
+	_ []byte, msg interface{}, funds sdk.Coins,
 ) (*types.AbstractAccount, error) {
 	k := app.AbstractAccountKeeper
 	msgServer := keeper.NewMsgServerImpl(k)

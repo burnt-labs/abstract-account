@@ -30,6 +30,9 @@ var (
 
 type AppModuleBasic struct{}
 
+func (AppModuleBasic) IsAppModule()        {}
+func (AppModuleBasic) IsOnePerModuleType() {}
+
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
@@ -91,14 +94,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 
 func (AppModule) ConsensusVersion() uint64 {
 	return 2
-}
-
-func (AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {
-	// nothing to do
-}
-
-func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
-	return []abci.ValidatorUpdate{}
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
