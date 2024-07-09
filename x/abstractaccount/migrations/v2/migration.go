@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/larry0x/abstract-account/x/abstractaccount/types"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	storetypes "cosmossdk.io/store/types"
 )
 
 // MigrateStore performs in-place params migrations of
@@ -23,7 +23,7 @@ func MigrateStore(ctx sdk.Context, key storetypes.StoreKey, cdc codec.BinaryCode
 	return setParams(ctx, store, cdc, params)
 }
 
-func getParams(ctx sdk.Context, store sdk.KVStore, cdc codec.BinaryCodec) (*types.Params, error) {
+func getParams(_ sdk.Context, store storetypes.KVStore, cdc codec.BinaryCodec) (*types.Params, error) {
 	bz := store.Get(types.KeyParams)
 	if bz == nil {
 		params := types.DefaultParams()
@@ -36,10 +36,9 @@ func getParams(ctx sdk.Context, store sdk.KVStore, cdc codec.BinaryCodec) (*type
 	}
 
 	return &params, nil
-
 }
 
-func setParams(ctx sdk.Context, store sdk.KVStore, cdc codec.BinaryCodec, params *types.Params) error {
+func setParams(_ sdk.Context, store storetypes.KVStore, cdc codec.BinaryCodec, params *types.Params) error {
 	bz, err := cdc.Marshal(params)
 	if err != nil {
 		return types.ErrParsingParams.Wrap(err.Error())

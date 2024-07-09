@@ -5,8 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/larry0x/abstract-account/simapp"
@@ -21,7 +19,7 @@ var (
 
 func setupGenesisTest() (sdk.Context, *simapp.SimApp) {
 	app := simapptesting.MakeSimpleMockApp()
-	ctx := app.NewContext(false, tmproto.Header{})
+	ctx := app.NewContext(false)
 
 	gs := types.NewGenesisState(mockNextAccountID, mockParams)
 	app.AbstractAccountKeeper.InitGenesis(ctx, gs)

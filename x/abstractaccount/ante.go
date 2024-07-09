@@ -3,8 +3,11 @@ package abstractaccount
 import (
 	"encoding/json"
 
+	"cosmossdk.io/core/gas"
 	"cosmossdk.io/errors"
+	storetypes "cosmossdk.io/store/types"
 
+	txsign "cosmossdk.io/x/tx/signing"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txsigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -26,7 +29,7 @@ var (
 // -------------------------------- GasComsumer --------------------------------
 
 func SigVerificationGasConsumer(
-	meter sdk.GasMeter, sig txsigning.SignatureV2, params authtypes.Params,
+	meter storetypes.GasMeter, sig txsigning.SignatureV2, params authtypes.Params,
 ) error {
 	// If the pubkey is a NilPubKey, for now we do not consume any gas (the
 	// contract execution consumes it)
@@ -44,10 +47,10 @@ func SigVerificationGasConsumer(
 type BeforeTxDecorator struct {
 	aak             keeper.Keeper
 	ak              authante.AccountKeeper
-	signModeHandler authsigning.SignModeHandler
+	signModeHandler *txsign.HandlerMap
 }
 
-func NewBeforeTxDecorator(aak keeper.Keeper, ak authante.AccountKeeper, signModeHandler authsigning.SignModeHandler) BeforeTxDecorator {
+func NewBeforeTxDecorator(aak keeper.Keeper, ak authante.AccountKeeper, signModeHandler *txsign.HandlerMap) BeforeTxDecorator {
 	return BeforeTxDecorator{aak, ak, signModeHandler}
 }
 
@@ -196,7 +199,10 @@ func IsAbstractAccountTx(ctx sdk.Context, tx sdk.Tx, ak authante.AccountKeeper) 
 		return false, nil, nil, err
 	}
 
-	signerAddrs := sigTx.GetSigners()
+	signerAddrs, err := sigTx.GetSigners()
+	if err != nil {
+		return false, nil, nil, err
+	}
 	if len(signerAddrs) != 1 || len(sigs) != 1 {
 		return false, nil, nil, nil
 	}
@@ -216,14 +222,14 @@ func IsAbstractAccountTx(ctx sdk.Context, tx sdk.Tx, ak authante.AccountKeeper) 
 
 func prepareCredentials(
 	ctx sdk.Context, tx sdk.Tx, signerAcc authtypes.AccountI,
-	sigData txsigning.SignatureData, handler authsigning.SignModeHandler,
+	sigData txsigning.SignatureData, handler *txsign.HandlerMap,
 ) ([]byte, []byte, error) {
 	signerData := authsigning.SignerData{
-		Address:       signerAcc.GetAddress().String(),
 		ChainID:       ctx.ChainID(),
-		AccountNumber: signerAcc.GetAccountNumber(), // should we handle the case that this is a gentx?
+		AccountNumber: signerAcc.GetAccountNumber(),
 		Sequence:      signerAcc.GetSequence(),
 		PubKey:        signerAcc.GetPubKey(),
+		Address:       signerAcc.GetAddress().String(),
 	}
 
 	data, ok := sigData.(*txsigning.SingleSignatureData)
@@ -231,7 +237,7 @@ func prepareCredentials(
 		return nil, nil, types.ErrNotSingleSignature
 	}
 
-	signBytes, err := handler.GetSignBytes(data.SignMode, signerData, tx)
+	signBytes, err := authsigning.GetSignBytesAdapter(ctx, handler, data.SignMode, signerData, tx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -262,10 +268,10 @@ func sdkMsgsToAnys(msgs []sdk.Msg) ([]*types.Any, error) {
 // Thanks Roman and Jorge for the helpful discussion.
 func sudoWithGasLimit(
 	ctx sdk.Context, contractKeeper wasmtypes.ContractOpsKeeper,
-	contractAddr sdk.AccAddress, msg []byte, maxGas sdk.Gas,
+	contractAddr sdk.AccAddress, msg []byte, maxGas gas.Gas,
 ) error {
 	cacheCtx, write := ctx.CacheContext()
-	cacheCtx = cacheCtx.WithGasMeter(sdk.NewGasMeter(maxGas))
+	cacheCtx = cacheCtx.WithGasMeter(storetypes.NewGasMeter(maxGas))
 
 	if _, err := contractKeeper.Sudo(cacheCtx, contractAddr, msg); err != nil {
 		return err

@@ -9,17 +9,19 @@ import (
 
 	"github.com/spf13/cast"
 
-	dbm "github.com/cometbft/cometbft-db"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	tmos "github.com/cometbft/cometbft/libs/os"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
+	corestore "cosmossdk.io/core/store"
+	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	nodeservice "github.com/cosmos/cosmos-sdk/client/grpc/node"
-	"github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
@@ -28,12 +30,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/std"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/version"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/auth/posthandler"
 	authsims "github.com/cosmos/cosmos-sdk/x/auth/simulation"
@@ -45,13 +47,12 @@ import (
 	consensus "github.com/cosmos/cosmos-sdk/x/consensus"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	consensusparamtypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	"github.com/cosmos/cosmos-sdk/x/staking"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-
-	"github.com/larry0x/simapp/x/poa"
-	poatypes "github.com/larry0x/simapp/x/poa/types"
 
 	"github.com/larry0x/abstract-account/x/abstractaccount"
 	abstractaccountkeeper "github.com/larry0x/abstract-account/x/abstractaccount/keeper"
@@ -81,7 +82,7 @@ var (
 		auth.AppModuleBasic{},
 		bank.AppModuleBasic{},
 		consensus.AppModuleBasic{},
-		poa.AppModuleBasic{},
+		staking.AppModuleBasic{},
 		wasm.AppModuleBasic{},
 	)
 
@@ -114,8 +115,9 @@ type SimApp struct {
 	ConsensusParamsKeeper consensusparamkeeper.Keeper
 	WasmKeeper            wasmkeeper.Keeper
 
-	ModuleManager *module.Manager
-	configurator  module.Configurator
+	ModuleManager      *module.Manager
+	BasicModuleManager module.BasicManager
+	configurator       module.Configurator
 }
 
 func init() {
@@ -151,15 +153,16 @@ func NewSimApp(
 	bApp.SetInterfaceRegistry(encCfg.InterfaceRegistry)
 	bApp.SetTxEncoder(encCfg.TxConfig.TxEncoder())
 
-	keys := sdk.NewKVStoreKeys(
+	keys := storetypes.NewKVStoreKeys(
 		abstractaccounttypes.StoreKey,
 		authtypes.StoreKey,
 		banktypes.StoreKey,
 		consensusparamtypes.StoreKey,
 		wasmtypes.StoreKey,
+		stakingtypes.StoreKey,
 	)
-	tkeys := sdk.NewTransientStoreKeys()
-	memKeys := sdk.NewMemoryStoreKeys()
+	tkeys := storetypes.NewTransientStoreKeys()
+	memKeys := storetypes.NewMemoryStoreKeys()
 
 	app := &SimApp{
 		BaseApp:           bApp,
@@ -174,32 +177,35 @@ func NewSimApp(
 
 	app.ConsensusParamsKeeper = consensusparamkeeper.NewKeeper(
 		app.cdc,
-		keys[consensusparamtypes.StoreKey],
+		runtime.NewKVStoreService(keys[consensusparamtypes.StoreKey]),
 		Authority,
+		runtime.EventService{},
 	)
-	app.SetParamStore(&app.ConsensusParamsKeeper)
+	app.SetParamStore(app.ConsensusParamsKeeper.ParamsStore)
 
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		app.cdc,
-		keys[authtypes.StoreKey],
+		runtime.NewKVStoreService(keys[authtypes.StoreKey]),
 		authtypes.ProtoBaseAccount,
 		maccPerms,
+		authcodec.NewBech32Codec(sdk.Bech32MainPrefix),
 		sdk.Bech32MainPrefix,
 		Authority,
 	)
 
 	app.BankKeeper = bankkeeper.NewBaseKeeper(
 		app.cdc,
-		keys[banktypes.StoreKey],
+		runtime.NewKVStoreService(keys[banktypes.StoreKey]),
 		app.AccountKeeper,
 		blockedAddresses(),
 		Authority,
+		app.Logger(),
 	)
 
 	wasmDir, wasmCfg, wasmCapabilities := wasmParams(appOpts)
 	app.WasmKeeper = wasmkeeper.NewKeeper(
 		app.cdc,
-		keys[wasmtypes.StoreKey],
+		runtime.NewKVStoreService(keys[wasmtypes.StoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
 		nil,
@@ -234,12 +240,12 @@ func NewSimApp(
 		auth.NewAppModule(app.cdc, app.AccountKeeper, authsims.RandomGenesisAccounts, nil),
 		bank.NewAppModule(app.cdc, app.BankKeeper, app.AccountKeeper, nil),
 		consensus.NewAppModule(app.cdc, app.ConsensusParamsKeeper),
-		poa.NewAppModule(),
+
 		wasm.NewAppModule(app.cdc, &app.WasmKeeper, nil, app.AccountKeeper, app.BankKeeper, app.MsgServiceRouter(), nil),
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(
-		poatypes.ModuleName,
+		stakingtypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		consensusparamtypes.ModuleName,
@@ -248,7 +254,7 @@ func NewSimApp(
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
-		poatypes.ModuleName,
+		stakingtypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		consensusparamtypes.ModuleName,
@@ -259,7 +265,7 @@ func NewSimApp(
 	genesisModuleOrder := []string{
 		authtypes.ModuleName,
 		banktypes.ModuleName,
-		poatypes.ModuleName,
+		stakingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		wasmtypes.ModuleName,
 		abstractaccounttypes.ModuleName,
@@ -278,7 +284,7 @@ func NewSimApp(
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
 
-	app.setAnteHandler(encCfg.TxConfig, wasmCfg, keys[wasmtypes.StoreKey])
+	app.setAnteHandler(encCfg.TxConfig, wasmCfg, runtime.NewKVStoreService(keys[wasmtypes.StoreKey]))
 	app.setPostHandler()
 
 	if manager := app.SnapshotManager(); manager != nil {
@@ -304,7 +310,7 @@ func NewSimApp(
 	return app
 }
 
-func (app *SimApp) setAnteHandler(txCfg client.TxConfig, wasmCfg wasmtypes.WasmConfig, txCounterStoreKey storetypes.StoreKey) {
+func (app *SimApp) setAnteHandler(txCfg client.TxConfig, wasmCfg wasmtypes.WasmConfig, txCounterStoreKey corestore.KVStoreService) {
 	anteHandler, err := NewAnteHandler(
 		AnteHandlerOptions{
 			HandlerOptions: ante.HandlerOptions{
@@ -350,7 +356,15 @@ func (app *SimApp) LegacyAmino() *codec.LegacyAmino {
 	return app.amino
 }
 
-func (app *SimApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
+// AppCodec returns SimApp's app codec.
+//
+// NOTE: This is solely to be used for testing purposes as it may be desirable
+// for modules to register their own custom testing types.
+func (app *SimApp) AppCodec() codec.Codec {
+	return app.cdc
+}
+
+func (app *SimApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	var genesisState GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
@@ -359,19 +373,19 @@ func (app *SimApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.
 	return app.ModuleManager.InitGenesis(ctx, app.cdc, genesisState)
 }
 
-func (app *SimApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
-	return app.ModuleManager.BeginBlock(ctx, req)
+func (app *SimApp) BeginBlocker(ctx sdk.Context) (sdk.BeginBlock, error) {
+	return app.ModuleManager.BeginBlock(ctx)
 }
 
-func (app *SimApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
-	return app.ModuleManager.EndBlock(ctx, req)
+func (app *SimApp) EndBlocker(ctx sdk.Context) (sdk.EndBlock, error) {
+	return app.ModuleManager.EndBlock(ctx)
 }
 
 func (app *SimApp) LoadHeight(height int64) error {
 	return app.LoadVersion(height)
 }
 
-func (app *SimApp) ExportAppStateAndValidators(_ bool, _ []string, _ []string) (servertypes.ExportedApp, error) {
+func (app *SimApp) ExportAppStateAndValidators(_ bool, _, _ []string) (servertypes.ExportedApp, error) {
 	panic("UNIMPLEMENTED")
 }
 
@@ -385,7 +399,7 @@ func (app *SimApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APICon
 	clientCtx := apiSvr.ClientCtx
 
 	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
-	tmservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 	nodeservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 	ModuleBasics.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
@@ -404,7 +418,7 @@ func (app *SimApp) RegisterTxService(clientCtx client.Context) {
 }
 
 func (app *SimApp) RegisterTendermintService(clientCtx client.Context) {
-	tmservice.RegisterTendermintService(
+	cmtservice.RegisterTendermintService(
 		clientCtx,
 		app.BaseApp.GRPCQueryRouter(),
 		app.interfaceRegistry,
@@ -412,8 +426,8 @@ func (app *SimApp) RegisterTendermintService(clientCtx client.Context) {
 	)
 }
 
-func (app *SimApp) RegisterNodeService(clientCtx client.Context) {
-	nodeservice.RegisterNodeService(clientCtx, app.GRPCQueryRouter())
+func (app *SimApp) RegisterNodeService(clientCtx client.Context, cfg config.Config) {
+	nodeservice.RegisterNodeService(clientCtx, app.GRPCQueryRouter(), cfg)
 }
 
 // ----------------------------------- Misc ------------------------------------

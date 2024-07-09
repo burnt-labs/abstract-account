@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -20,15 +19,15 @@ import (
 func TestIsAbstractAccountTx(t *testing.T) {
 	var (
 		app     = simapptesting.MakeSimpleMockApp()
-		ctx     = app.NewContext(false, tmproto.Header{})
+		ctx     = app.NewContext(false)
 		keybase = keyring.NewInMemory(app.Codec())
 	)
 
 	// we create two mock accounts: 1, a BaseAccount, 2, an AbstractAccount
-	acc1, err := makeMockAccount(keybase, "test1")
+	acc1, err := makeMockAccount(keybase, "test1", 1)
 	require.NoError(t, err)
 
-	acc2, err := makeMockAccount(keybase, "test2")
+	acc2, err := makeMockAccount(keybase, "test2", 2)
 	acc2 = types.NewAbstractAccountFromAccount(acc2)
 	require.NoError(t, err)
 
@@ -101,25 +100,13 @@ func TestBeforeTx(t *testing.T) {
 		mockSeq    = uint64(88888)
 	)
 
-	ctx := app.NewContext(false, tmproto.Header{
-		// whenever we execute a contract, we must specify the block time in the
-		// header, so that wasmkeeper knows what to use for env.block.time
-		//
-		// if not doing this, will get this error:
-		// panic: Block (unix) time must never be empty or negative
-		Time: time.Now(),
-
-		// whenever we want to do signature verification of a tx, we must specify
-		// the chain-id in the header, otherwise it defaults to an empty string and
-		// verification will always fail
-		ChainID: mockChainID,
-	})
+	ctx := app.NewContext(false).WithBlockTime(time.Now()).WithChainID(mockChainID)
 
 	// create two mock accounts
-	acc1, err := makeMockAccount(keybase, "test1")
+	acc1, err := makeMockAccount(keybase, "test1", 1)
 	require.NoError(t, err)
 
-	acc2, err := makeMockAccount(keybase, "test2")
+	acc2, err := makeMockAccount(keybase, "test2", 2)
 	require.NoError(t, err)
 
 	// register the AbstractAccount
@@ -322,13 +309,10 @@ func TestAfterTx(t *testing.T) {
 		keybase = keyring.NewInMemory(app.Codec())
 	)
 
-	ctx := app.NewContext(false, tmproto.Header{
-		Time:    time.Now(),
-		ChainID: mockChainID,
-	})
+	ctx := app.NewContext(false).WithBlockTime(time.Now()).WithChainID(mockChainID)
 
 	// create a mock account
-	acc, err := makeMockAccount(keybase, "test1")
+	acc, err := makeMockAccount(keybase, "test1", 1)
 	require.NoError(t, err)
 
 	// register the AbstractAccount

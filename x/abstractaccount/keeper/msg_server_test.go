@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,8 +27,8 @@ type AccountInitMsg struct {
 
 var (
 	user               = simapptesting.MakeRandomAddress()
-	userInitialBalance = sdk.NewCoins(sdk.NewCoin(simapptesting.DefaultBondDenom, sdk.NewInt(123456)))
-	acctRegisterFunds  = sdk.NewCoins(sdk.NewCoin(simapptesting.DefaultBondDenom, sdk.NewInt(88888)))
+	userInitialBalance = sdk.NewCoins(sdk.NewCoin(simapptesting.DefaultBondDenom, math.NewInt(123456)))
+	acctRegisterFunds  = sdk.NewCoins(sdk.NewCoin(simapptesting.DefaultBondDenom, math.NewInt(88888)))
 )
 
 // ------------------------------- UpdateParams --------------------------------
@@ -60,7 +60,7 @@ func TestUpdateParams(t *testing.T) {
 		},
 	} {
 		app := simapptesting.MakeMockApp([]banktypes.Balance{})
-		ctx := app.NewContext(false, tmproto.Header{})
+		ctx := app.NewContext(false)
 
 		msgServer := keeper.NewMsgServerImpl(app.AbstractAccountKeeper)
 
@@ -116,14 +116,7 @@ func TestRegisterAccount(t *testing.T) {
 			},
 		})
 
-		ctx := app.NewContext(false, tmproto.Header{
-			// whenever we execute a contract, we must specify the block time in the
-			// header, so that wasmkeeper knows what to use for env.block.time
-			//
-			// if not doing this, will get this error:
-			// panic: Block (unix) time must never be empty or negative
-			Time: time.Now(),
-		})
+		ctx := app.NewContext(false).WithBlockTime(time.Now())
 
 		params, err := types.NewParams(tc.allowAllCodeIDs, tc.allowedCodeIDs, types.DefaultMaxGas, types.DefaultMaxGas)
 		require.NoError(t, err)
