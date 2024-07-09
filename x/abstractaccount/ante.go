@@ -74,7 +74,7 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		return svd.AnteHandle(ctx, tx, simulate, next)
 	}
 
-	if ctx.BlockTime().UnixNano() < 1 {
+	if ctx.BlockTime().UnixNano() <= 0 {
 		return ctx, types.ErrNoBlockTime.Wrapf("expected a positive block time, received %d", ctx.BlockTime().UnixNano())
 	}
 
