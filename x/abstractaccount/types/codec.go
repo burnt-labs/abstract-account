@@ -15,7 +15,7 @@ import (
 )
 
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
-	registry.RegisterImplementations((*authtypes.AccountI)(nil), &AbstractAccount{})
+	registry.RegisterImplementations((*sdk.AccountI)(nil), &AbstractAccount{})
 	registry.RegisterImplementations((*cryptotypes.PubKey)(nil), &NilPubKey{})
 
 	registry.RegisterImplementations((*sdk.Msg)(nil), &MsgRegisterAccount{})

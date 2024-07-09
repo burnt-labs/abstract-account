@@ -99,7 +99,7 @@ func (pk *NilPubKey) Bytes() []byte {
 	return nil
 }
 
-func (pk *NilPubKey) VerifySignature(_ []byte, _ []byte) bool {
+func (pk *NilPubKey) VerifySignature(_, _ []byte) bool {
 	panic("NilPubKey.VerifySignature should never be invoked")
 }
 
