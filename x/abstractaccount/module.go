@@ -41,6 +41,11 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 	types.RegisterInterfaces(registry)
 }
 
+// RegisterLegacyAminoCodec registers the auth module's types for the given codec.
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	types.RegisterLegacyAminoCodec(cdc)
+}
+
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 	return cdc.MustMarshalJSON(types.DefaultGenesisState())
 }
@@ -115,8 +120,6 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // ----------------------------- Deprecated stuff ------------------------------
 
 // deprecated
-func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {
-}
 
 // deprecated
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {
