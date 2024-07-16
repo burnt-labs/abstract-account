@@ -74,6 +74,10 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		return svd.AnteHandle(ctx, tx, simulate, next)
 	}
 
+	if ctx.BlockTime().UnixNano() <= 0 {
+		return ctx, types.ErrNoBlockTime.Wrapf("expected a positive block time, received %d", ctx.BlockTime().UnixNano())
+	}
+
 	// save the account address to the module store. we will need it in the
 	// posthandler
 	d.aak.SetSignerAddress(ctx, signerAcc.GetAddress())
