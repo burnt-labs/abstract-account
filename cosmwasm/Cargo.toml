@@ -16,7 +16,7 @@ keywords      = ["blockchain", "cosmos", "cosmwasm", "account-abstraction"]
 [workspace.dependencies]
 cosmos-sdk-proto = { version = "0.23.0", default-features = false }
 cosmwasm-schema  = "2.1.1"
-cosmwasm-std     = { version = "2.1.1", features = ["stargate", "cosmwasm_2_1"] }
+cosmwasm-std     = { version = "2.1.1", features = ["stargate", "cosmwasm_2_0"] }
 cw2              = "2.0.0"
 cw-storage-plus  = "2.0.0"
 cw-utils         = "2.0.0"
