@@ -1,5 +1,5 @@
-use cosmos_sdk_proto::{cosmos, traits::TypeUrl};
-use cosmwasm_std::CosmosMsg;
+use cosmos_sdk_proto::{cosmos};
+use cosmwasm_std::{AnyMsg, CosmosMsg, to_json_binary};
 use prost::Message;
 
 #[derive(Clone, PartialEq, prost::Message)]
@@ -22,16 +22,17 @@ pub struct MsgRegisterAccount {
 
 impl From<MsgRegisterAccount> for CosmosMsg {
     fn from(msg: MsgRegisterAccount) -> Self {
-        CosmosMsg::Stargate {
-            type_url: MsgRegisterAccount::TYPE_URL.into(),
+        let any_msg: AnyMsg = AnyMsg{
+            type_url: String::from("/abstractaccount.v1.MsgRegisterAccount"),
             value:    msg.encode_to_vec().into(),
-        }
+        };
+        CosmosMsg::Any(any_msg)
     }
 }
 
-impl TypeUrl for MsgRegisterAccount {
-    const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccount";
-}
+// impl TypeUrl for MsgRegisterAccount {
+//     const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccount";
+// }
 
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct MsgRegisterAccountResponse {
@@ -42,9 +43,9 @@ pub struct MsgRegisterAccountResponse {
     pub data: Vec<u8>,
 }
 
-impl TypeUrl for MsgRegisterAccountResponse {
-    const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccountResponse";
-}
+// impl TypeUrl for MsgRegisterAccountResponse {
+//     const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccountResponse";
+// }
 
 // TODO: add definitions for AbstractAccount and NilPubKey
 // TODO: add tests
