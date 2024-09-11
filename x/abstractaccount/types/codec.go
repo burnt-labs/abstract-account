@@ -9,6 +9,24 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 )
 
+var amino = codec.NewLegacyAmino()
+
+// NOTE: This is required for the GetSignBytes function
+func init() {
+	RegisterLegacyAminoCodec(amino)
+
+	sdk.RegisterLegacyAminoCodec(amino)
+	// cryptocodec.RegisterCrypto(amino)
+	// codec.RegisterEvidences(amino)
+
+	// Register all Amino interfaces and concrete types on the authz Amino codec
+	// so that this can later be used to properly serialize MsgGrant and MsgExec
+	// instances.
+	RegisterLegacyAminoCodec(legacy.Cdc)
+
+	amino.Seal()
+}
+
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	legacy.RegisterAminoMsg(cdc, &MsgUpdateParams{}, "abstract-account/MsgUpdateParams")
 
