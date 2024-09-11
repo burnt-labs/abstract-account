@@ -12,7 +12,7 @@ import (
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	legacy.RegisterAminoMsg(cdc, &MsgUpdateParams{}, "abstract-account/MsgUpdateParams")
 
-	cdc.RegisterConcrete(&NilPubKey{}, "types.NilPubKey", nil)
+	cdc.RegisterConcrete(&NilPubKey{}, "abstract-account/NilPubKey", nil)
 	cdc.RegisterConcrete(&Params{}, "abstract-account/Params", nil)
 }
 
