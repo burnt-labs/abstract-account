@@ -18,6 +18,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 
 	// try to register the nilpubkey, for some reason it doesn't happen otherwise
 	cryptocodec.RegisterCrypto(cdc)
+	sdk.RegisterLegacyAminoCodec(cdc)
 }
 
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
