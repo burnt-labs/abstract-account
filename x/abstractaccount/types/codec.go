@@ -4,7 +4,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/legacy"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
@@ -13,12 +12,8 @@ import (
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	legacy.RegisterAminoMsg(cdc, &MsgUpdateParams{}, "abstract-account/MsgUpdateParams")
 
-	cdc.RegisterConcrete(&NilPubKey{}, "abstract-account/NilPubKey", nil)
+	cdc.RegisterConcrete(&NilPubKey{}, "types.NilPubKey", nil)
 	cdc.RegisterConcrete(&Params{}, "abstract-account/Params", nil)
-
-	// try to register the nilpubkey, for some reason it doesn't happen otherwise
-	cryptocodec.RegisterCrypto(cdc)
-	sdk.RegisterLegacyAminoCodec(cdc)
 }
 
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
