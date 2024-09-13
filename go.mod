@@ -352,3 +352,5 @@ replace (
 )
 
 replace github.com/larry0x/abstract-account => github.com/burnt-labs/abstract-account v0.0.0-20230721030750-bfc8aaaafcef
+
+replace github.com/cosmos/cosmos-sdk => github.com/burnt-labs/cosmos-sdk v0.50.10-0.20240913144726-75a7481c038e
