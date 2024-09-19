@@ -10,4 +10,5 @@ var (
 	ErrNotSingleSignature = errors.Register(ModuleName, 6, "signature is not a txsigning.SingleSignatureData")
 	ErrParsingParams      = errors.Register(ModuleName, 7, "failed to marshal or unmarshal module params")
 	ErrZeroMaxGas         = errors.Register(ModuleName, 8, "max gas cannot be zero")
+	ErrNoBlockTime        = errors.Register(ModuleName, 9, "block time can not be zero")
 )
