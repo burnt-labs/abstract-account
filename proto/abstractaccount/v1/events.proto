@@ -9,4 +9,5 @@ message EventAccountRegistered {
   string creator       = 1;
   uint64 code_id       = 2 [(gogoproto.customname) = "CodeID"];
   string contract_addr = 3;
+  uint64 account_number = 4;
 }
