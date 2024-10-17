@@ -5,4 +5,5 @@ const (
 	AttributeKeyCreator        = "creator"
 	AttributeKeyCodeID         = "code_id"
 	AttributeKeyContractAddr   = "contract_addr"
+	AttributeKeyAccountNumber  = "account_number"
 )

@@ -92,12 +92,14 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		types.AttributeKeyCreator, req.Sender,
 		types.AttributeKeyCodeID, req.CodeID,
 		types.AttributeKeyContractAddr, contractAddr.String(),
+		types.AttributeKeyAccountNumber, acc.GetAccountNumber(),
 	)
 
 	if err = ctx.EventManager().EmitTypedEvent(&types.EventAccountRegistered{
-		Creator:      req.Sender,
-		CodeID:       req.CodeID,
-		ContractAddr: contractAddr.String(),
+		Creator:       req.Sender,
+		CodeID:        req.CodeID,
+		ContractAddr:  contractAddr.String(),
+		AccountNumber: acc.GetAccountNumber(),
 	}); err != nil {
 		return nil, err
 	}
