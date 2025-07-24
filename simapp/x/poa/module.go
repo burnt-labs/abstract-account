@@ -16,7 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/burnt-labs/abstract-account/x/poa/types"
+	"github.com/burnt-labs/abstract-account/simapp/x/poa/types"
 )
 
 var (
@@ -71,6 +71,12 @@ func NewAppModule() AppModule {
 	return AppModule{AppModuleBasic{}}
 }
 
+func (am AppModule) IsOnePerModuleType() {
+}
+
+func (am AppModule) IsAppModule() {
+}
+
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
 	// nothing to register
 }
@@ -96,12 +102,6 @@ func (am AppModule) InitGenesis(_ sdk.Context, cdc codec.JSONCodec, data json.Ra
 
 func (am AppModule) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
 	panic("UNIMPLEMENTED")
-}
-
-func (am AppModule) IsOnePerModuleType() {
-}
-
-func (am AppModule) IsAppModule() {
 }
 
 // ----------------------------- Deprecated stuff ------------------------------

@@ -2,6 +2,7 @@ package testing
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -22,7 +23,7 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
 	"github.com/burnt-labs/abstract-account/simapp"
-	poatypes "github.com/burnt-labs/abstract-account/x/poa/types"
+	poatypes "github.com/burnt-labs/abstract-account/simapp/x/poa/types"
 )
 
 const DefaultBondDenom = "utoken"
@@ -50,6 +51,12 @@ func MakeSimpleMockApp() *simapp.SimApp {
 
 func MakeMockApp(balances []banktypes.Balance) *simapp.SimApp {
 	encCfg := simapp.MakeEncodingConfig()
+
+	home, err := os.MkdirTemp(os.TempDir(), "simapp")
+	if err := os.Setenv("HOME", home); err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(home)
 
 	app := simapp.NewSimApp(
 		log.NewNopLogger(),
@@ -122,6 +129,7 @@ func MakeMockGenesisState(cdc codec.JSONCodec, balances []banktypes.Balance) sim
 			},
 		},
 	})
+	println(gs)
 
 	return gs
 }

@@ -392,6 +392,11 @@ func (app *SimApp) SimulationManager() *module.SimulationManager {
 	panic("UNIMPLEMENTED")
 }
 
+// DefaultGenesis returns a default genesis from the registered AppModuleBasic's.
+func (app *SimApp) DefaultGenesis() map[string]json.RawMessage {
+	return app.BasicModuleManager.DefaultGenesis(app.AppCodec())
+}
+
 // -------------------------- servertypes.Application --------------------------
 
 func (app *SimApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.APIConfig) {
