@@ -22,7 +22,7 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
 	"github.com/burnt-labs/abstract-account/simapp"
-	poatypes "github.com/burnt-labs/abstract-account/simapp/x/poa/types"
+	poatypes "github.com/burnt-labs/abstract-account/x/poa/types"
 )
 
 const DefaultBondDenom = "utoken"

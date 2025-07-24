@@ -111,7 +111,7 @@ lint:
 ###                                 Protobuf                                 ###
 ################################################################################
 
-protoVer=0.11.6
+protoVer=0.16.0
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 containerProtoGenGo=aa-proto-gen-go-$(protoVer)
 

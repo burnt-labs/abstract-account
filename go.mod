@@ -1,8 +1,6 @@
 module github.com/burnt-labs/abstract-account
 
-go 1.23.6
-
-toolchain go1.23.11
+go 1.23.11
 
 require (
 	cosmossdk.io/core v0.11.3

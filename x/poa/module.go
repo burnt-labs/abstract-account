@@ -16,7 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/burnt-labs/abstract-account/simapp/x/poa/types"
+	"github.com/burnt-labs/abstract-account/x/poa/types"
 )
 
 var (
@@ -83,11 +83,7 @@ func (AppModule) ConsensusVersion() uint64 {
 	return 1
 }
 
-func (AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {
-	// nothing to do
-}
-
-func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
+func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestFinalizeBlock) []abci.ValidatorUpdate {
 	return []abci.ValidatorUpdate{}
 }
 
@@ -100,6 +96,12 @@ func (am AppModule) InitGenesis(_ sdk.Context, cdc codec.JSONCodec, data json.Ra
 
 func (am AppModule) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
 	panic("UNIMPLEMENTED")
+}
+
+func (am AppModule) IsOnePerModuleType() {
+}
+
+func (am AppModule) IsAppModule() {
 }
 
 // ----------------------------- Deprecated stuff ------------------------------

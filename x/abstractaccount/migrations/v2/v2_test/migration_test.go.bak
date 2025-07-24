@@ -35,11 +35,12 @@ func TestMigrateStore(t *testing.T) {
 	cdc := codec.NewProtoCodec(registry)
 	ctx := sdk.NewContext(stateStore, tmproto.Header{}, false, log.NewNopLogger())
 
-	store := ctx.KVStore(storeKey)
+	// store := ctx.KVStore(storeKey)
 	require.NoError(t, stateStore.LoadLatestVersion())
 
-	bz := store.Get(types.KeyParams)
-	require.Nil(t, bz)
+	// println(types.KeyParams)
+	// bz := store.Get(types.KeyParams)
+	// require.Nil(t, bz)
 
 	// run global fee migration
 	err := v2.MigrateStore(ctx, storeKey, cdc)
