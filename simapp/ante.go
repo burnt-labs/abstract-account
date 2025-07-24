@@ -19,7 +19,7 @@ import (
 type AnteHandlerOptions struct {
 	ante.HandlerOptions
 
-	WasmCfg               *wasmtypes.WasmConfig
+	WasmCfg               *wasmtypes.NodeConfig
 	TXCounterStoreKey     storetypes.KVStoreService
 	AbstractAccountKeeper abstractaccountkeeper.Keeper
 }
