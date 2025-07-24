@@ -1,6 +1,6 @@
 # absacc
 
-Rust bindings for the [x/abstractaccount](https://github.com/larry0x/abstract-account) module.
+Rust bindings for the [x/abstractaccount](https://github.com/burnt-labs/abstract-account) module.
 
 ## License
 

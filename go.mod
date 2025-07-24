@@ -1,4 +1,4 @@
-module github.com/larry0x/abstract-account
+module github.com/burnt-labs/abstract-account
 
 go 1.23.6
 
@@ -21,7 +21,6 @@ require (
 	github.com/golangci/golangci-lint v1.54.2
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/larry0x/simapp v0.0.0-20230527213943-e57d94ffca4c
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -376,5 +375,3 @@ replace (
 	// Downgraded to avoid bugs in following commits which caused simulations to fail
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
-
-replace github.com/larry0x/abstract-account => github.com/burnt-labs/abstract-account v0.0.0-20230721030750-bfc8aaaafcef

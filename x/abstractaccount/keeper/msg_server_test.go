@@ -14,11 +14,11 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/larry0x/abstract-account/simapp"
-	simapptesting "github.com/larry0x/abstract-account/simapp/testing"
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/testdata"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/simapp"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/testdata"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 type AccountInitMsg struct {

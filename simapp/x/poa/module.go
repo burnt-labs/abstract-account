@@ -1,4 +1,4 @@
-package abstractaccount
+package poa
 
 import (
 	"encoding/json"
@@ -16,9 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/burnt-labs/abstract-account/x/abstractaccount/client/cli"
-	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
-	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/simapp/x/poa/types"
 )
 
 var (
@@ -30,20 +28,12 @@ var (
 
 type AppModuleBasic struct{}
 
-func (AppModuleBasic) IsAppModule()        {}
-func (AppModuleBasic) IsOnePerModuleType() {}
-
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
-func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
-	types.RegisterInterfaces(registry)
-}
-
-// RegisterLegacyAminoCodec registers the auth module's types for the given codec.
-func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
-	types.RegisterLegacyAminoCodec(cdc)
+func (AppModuleBasic) RegisterInterfaces(_ codectypes.InterfaceRegistry) {
+	// nothing to register
 }
 
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
@@ -60,66 +50,63 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {
-	// nothing to do
+	// nothing to register
 }
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
-	return cli.GetTxCmd()
+	return nil
 }
 
 func (AppModuleBasic) GetQueryCmd() *cobra.Command {
-	return cli.GetQueryCmd()
+	return nil
 }
 
 // --------------------------------- AppModule ---------------------------------
 
 type AppModule struct {
 	AppModuleBasic
-	keeper keeper.Keeper
 }
 
-func NewAppModule(keeper keeper.Keeper) AppModule {
-	return AppModule{AppModuleBasic{}, keeper}
+func NewAppModule() AppModule {
+	return AppModule{AppModuleBasic{}}
 }
 
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
-	// nothing to do
+	// nothing to register
 }
 
-func (am AppModule) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
-	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
-
-	m := am.keeper.Migrator()
-	if err := cfg.RegisterMigration(types.ModuleName, 1, m.Migrate1to2); err != nil {
-		panic(fmt.Sprintf("failed to migrate x/abstract-account from version 1 to 2: %v", err))
-	}
-
+func (am AppModule) RegisterServices(_ module.Configurator) {
+	// nothing to register
 }
 
 func (AppModule) ConsensusVersion() uint64 {
-	return 2
+	return 1
 }
 
-func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
+func (AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {
+	// nothing to do
+}
+
+func (AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
+	return []abci.ValidatorUpdate{}
+}
+
+func (am AppModule) InitGenesis(_ sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {
 	var gs types.GenesisState
 	cdc.MustUnmarshalJSON(data, &gs)
 
-	if err := gs.Validate(); err != nil {
-		panic(fmt.Sprintf("invalid x/%s module genesis state: %s", types.ModuleName, err.Error()))
-	}
-
-	return am.keeper.InitGenesis(ctx, &gs)
+	return gs.Validators
 }
 
-func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
-	gs := am.keeper.ExportGenesis(ctx)
-	return cdc.MustMarshalJSON(gs)
+func (am AppModule) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
+	panic("UNIMPLEMENTED")
 }
 
 // ----------------------------- Deprecated stuff ------------------------------
 
 // deprecated
+func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {
+}
 
 // deprecated
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {

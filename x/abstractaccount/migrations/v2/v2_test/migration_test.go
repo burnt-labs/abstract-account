@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/store"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
 
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 
-	v2 "github.com/larry0x/abstract-account/x/abstractaccount/migrations/v2"
+	v2 "github.com/burnt-labs/abstract-account/x/abstractaccount/migrations/v2"
 )
 
 func TestMigrateStore(t *testing.T) {

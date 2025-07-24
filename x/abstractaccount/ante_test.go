@@ -10,10 +10,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	simapptesting "github.com/larry0x/abstract-account/simapp/testing"
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	"github.com/larry0x/abstract-account/x/abstractaccount/testdata"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/testdata"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 func TestIsAbstractAccountTx(t *testing.T) {

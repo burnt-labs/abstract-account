@@ -54,9 +54,9 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	abstractaccountkeeper "github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	abstractaccounttypes "github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	abstractaccountkeeper "github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	abstractaccounttypes "github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 const (

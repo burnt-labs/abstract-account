@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	simapptesting "github.com/larry0x/abstract-account/simapp/testing"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
 )
 
 func TestGetAndIncrementNextAccountID(t *testing.T) {

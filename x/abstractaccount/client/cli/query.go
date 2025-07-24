@@ -3,9 +3,9 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
 )
 
 func GetQueryCmd() *cobra.Command {

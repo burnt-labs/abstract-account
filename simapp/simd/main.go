@@ -34,8 +34,8 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
-	"github.com/larry0x/abstract-account/simapp"
-	"github.com/larry0x/abstract-account/simapp/params"
+	"github.com/burnt-labs/abstract-account/simapp"
+	"github.com/burnt-labs/abstract-account/simapp/params"
 )
 
 func init() {

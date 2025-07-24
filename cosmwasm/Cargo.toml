@@ -9,8 +9,8 @@ edition       = "2021"
 rust-version  = "1.68.0"
 license       = "Apache-2.0"
 homepage      = "https://larry.engineer"
-repository    = "https://github.com/larry0x/abstract-account"
-documentation = "https://github.com/larry0x/abstract-account#readme"
+repository    = "https://github.com/burnt-labs/abstract-account"
+documentation = "https://github.com/burnt-labs/abstract-account#readme"
 keywords      = ["blockchain", "cosmos", "cosmwasm", "account-abstraction"]
 
 [workspace.dependencies]

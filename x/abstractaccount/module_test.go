@@ -15,11 +15,11 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/larry0x/abstract-account/simapp"
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/testdata"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/simapp"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/testdata"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 const (

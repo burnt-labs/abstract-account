@@ -7,9 +7,9 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/larry0x/abstract-account/simapp"
-	simapptesting "github.com/larry0x/abstract-account/simapp/testing"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/simapp"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 var (
