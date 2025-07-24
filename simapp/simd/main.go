@@ -99,6 +99,7 @@ func NewRootCmd() *cobra.Command {
 			// sets the RPC client needed for SIGN_MODE_TEXTUAL. This sign mode
 			// is only available if the client is online.
 			if !initClientCtx.Offline {
+				//nolint:gocritic // appendAssign: intentionally creating new slice without modifying original
 				enabledSignModes := append(tx.DefaultSignModes, signing.SignMode_SIGN_MODE_TEXTUAL)
 				txConfigOpts := tx.ConfigOptions{
 					EnabledSignModes:           enabledSignModes,
@@ -158,7 +159,7 @@ func initRootCmd(
 	)
 
 	server.AddCommandsWithStartCmdOptions(rootCmd, simapp.DefaultNodeHome, newApp, appExport, server.StartCmdOptions{
-		AddFlags: func(startCmd *cobra.Command) {
+		AddFlags: func(_ *cobra.Command) {
 		},
 	})
 

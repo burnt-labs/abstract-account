@@ -2,7 +2,6 @@ package testing
 
 import (
 	"encoding/json"
-	"os"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -52,12 +51,6 @@ func MakeSimpleMockApp() *simapp.SimApp {
 func MakeMockApp(balances []banktypes.Balance) *simapp.SimApp {
 	encCfg := simapp.MakeEncodingConfig()
 
-	home, err := os.MkdirTemp(os.TempDir(), "simapp")
-	if err := os.Setenv("HOME", home); err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(home)
-
 	app := simapp.NewSimApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
@@ -73,13 +66,16 @@ func MakeMockApp(balances []banktypes.Balance) *simapp.SimApp {
 		panic(err)
 	}
 
-	app.InitChain(
+	_, err = app.InitChain(
 		&abci.RequestInitChain{
 			Validators:      []abci.ValidatorUpdate{},
 			ConsensusParams: DefaultConsensusParams,
 			AppStateBytes:   gsBytes,
 		},
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	return app
 }

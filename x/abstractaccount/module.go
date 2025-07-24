@@ -82,10 +82,6 @@ func NewAppModule(keeper keeper.Keeper) AppModule {
 	return AppModule{AppModuleBasic{}, keeper}
 }
 
-func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
-	// nothing to do
-}
-
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))

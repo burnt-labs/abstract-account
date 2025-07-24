@@ -124,8 +124,10 @@ func TestBeforeTx(t *testing.T) {
 	// change the AbstractAccount's account number and sequence to some non-zero
 	// numbers to make the tests harder
 	app.AccountKeeper.RemoveAccount(ctx, absAcc)
-	absAcc.SetAccountNumber(mockAccNum)
-	absAcc.SetSequence(mockSeq)
+	err = absAcc.SetAccountNumber(mockAccNum)
+	require.NoError(t, err)
+	err = absAcc.SetSequence(mockSeq)
+	require.NoError(t, err)
 	app.AccountKeeper.SetAccount(ctx, absAcc)
 
 	for _, tc := range []struct {
@@ -250,10 +252,11 @@ func TestBeforeTx(t *testing.T) {
 		},
 	} {
 		// set max gas
-		app.AbstractAccountKeeper.SetParams(ctx, &types.Params{
+		err := app.AbstractAccountKeeper.SetParams(ctx, &types.Params{
 			MaxGasBefore: tc.maxGas,
 			MaxGasAfter:  types.DefaultMaxGas,
 		})
+		require.NoError(t, err)
 
 		msg := banktypes.NewMsgSend(absAcc.GetAddress(), acc2.GetAddress(), sdk.NewCoins())
 
@@ -278,7 +281,7 @@ func TestBeforeTx(t *testing.T) {
 		if tc.expPanic {
 			require.Panics(t, func() {
 				decorator := makeBeforeTxDecorator(app)
-				decorator.AnteHandle(ctx, tx, tc.simulate, anteTerminator)
+				_, _ = decorator.AnteHandle(ctx, tx, tc.simulate, anteTerminator)
 			})
 
 			return

@@ -77,10 +77,6 @@ func (am AppModule) IsOnePerModuleType() {
 func (am AppModule) IsAppModule() {
 }
 
-func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
-	// nothing to register
-}
-
 func (am AppModule) RegisterServices(_ module.Configurator) {
 	// nothing to register
 }

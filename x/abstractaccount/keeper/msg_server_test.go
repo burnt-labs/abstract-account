@@ -122,7 +122,8 @@ func TestRegisterAccount(t *testing.T) {
 		require.NoError(t, err)
 
 		k := app.AbstractAccountKeeper
-		k.SetParams(ctx, params)
+		err = k.SetParams(ctx, params)
+		require.NoError(t, err)
 
 		// store code
 		codeID, err := storeCode(ctx, k.ContractKeeper())

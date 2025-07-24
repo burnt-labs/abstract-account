@@ -1,27 +1,73 @@
+version: "2"
 run:
-  tests: false
-  timeout: 5m # timeout for analysis, e.g. 30s, 5m, default is 1m
-
+  tests: true
 linters:
-  disable-all: true
+  default: none
   enable:
+    - bodyclose
+    - copyloopvar
     - dogsled
     - errcheck
-    - exportloopref
     - goconst
     - gocritic
-    - gofumpt
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
-    - nolintlint
-    - prealloc
-    - staticcheck
-    - stylecheck
     - revive
-    - typecheck
+    - staticcheck
     - unconvert
+    - unparam
+  disable:
     - unused
+  settings:
+    gocritic:
+      disabled-checks:
+        - appendAssign
+    gosec:
+      excludes:
+        - G404
+    revive:
+      rules:
+      - name: "var-naming"
+        disabled: true
+        severity: "warning"
+        arguments: []
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - blank
+        - dot
+        - prefix(github.com/cometbft/cometbft)
+        - prefix(github.com/cosmos)
+        - prefix(cosmossdk.io)
+        - prefix(github.com/cosmos/cosmos-sdk)
+        - prefix(github.com/burnt-labs/abstract-account)
+      custom-order: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

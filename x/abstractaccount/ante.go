@@ -221,7 +221,7 @@ func IsAbstractAccountTx(ctx sdk.Context, tx sdk.Tx, ak authante.AccountKeeper) 
 }
 
 func prepareCredentials(
-	ctx sdk.Context, tx sdk.Tx, signerAcc authtypes.AccountI,
+	ctx sdk.Context, tx sdk.Tx, signerAcc sdk.AccountI,
 	sigData txsigning.SignatureData, handler *txsign.HandlerMap,
 ) ([]byte, []byte, error) {
 	signerData := authsigning.SignerData{

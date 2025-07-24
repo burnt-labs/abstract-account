@@ -28,7 +28,7 @@ func paramsCmd() *cobra.Command {
 		Use:   "params",
 		Short: "Query the module's parameters",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
 				return err

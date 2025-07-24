@@ -273,7 +273,9 @@ func NewSimApp(
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
 
 	app.configurator = module.NewConfigurator(app.cdc, app.MsgServiceRouter(), app.GRPCQueryRouter())
-	app.ModuleManager.RegisterServices(app.configurator)
+	if err := app.ModuleManager.RegisterServices(app.configurator); err != nil {
+		panic(fmt.Errorf("failed to register module services: %w", err))
+	}
 
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)

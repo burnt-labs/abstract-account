@@ -27,11 +27,11 @@ const (
 	signMode    = signing.SignMode_SIGN_MODE_DIRECT
 )
 
-func anteTerminator(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+func anteTerminator(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 	return ctx, nil
 }
 
-func postTerminator(ctx sdk.Context, tx sdk.Tx, simulate, success bool) (sdk.Context, error) {
+func postTerminator(ctx sdk.Context, _ sdk.Tx, _ bool, _ bool) (sdk.Context, error) {
 	return ctx, nil
 }
 
@@ -43,7 +43,7 @@ func makeAfterTxDecorator(app *simapp.SimApp) abstractaccount.AfterTxDecorator {
 	return abstractaccount.NewAfterTxDecorator(app.AbstractAccountKeeper)
 }
 
-func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (authtypes.AccountI, error) {
+func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (sdk.AccountI, error) {
 	record, _, err := keybase.NewMnemonic(
 		uid,
 		keyring.English,
@@ -64,10 +64,10 @@ func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (authty
 }
 
 type Signer struct {
-	keyName        string             // the name of the key in the keyring
-	acc            authtypes.AccountI // the account corresponding to the address
-	overrideAccNum *uint64            // if not nil, will override the account number in the AccountI
-	overrideSeq    *uint64            // if not nil, will override the sequence in the AccountI
+	keyName        string       // the name of the key in the keyring
+	acc            sdk.AccountI // the account corresponding to the address
+	overrideAccNum *uint64      // if not nil, will override the account number in the AccountI
+	overrideSeq    *uint64      // if not nil, will override the sequence in the AccountI
 }
 
 func (s *Signer) AccountNumber() uint64 {
