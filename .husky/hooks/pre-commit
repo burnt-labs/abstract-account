@@ -1,2 +1,2 @@
 #!/bin/sh
-make test-coverage
+make lint && make test && make test-coverage
