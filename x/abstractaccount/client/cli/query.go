@@ -28,25 +28,27 @@ func paramsCmd() *cobra.Command {
 		Use:   "params",
 		Short: "Query the module's parameters",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			clientCtx, err := client.GetClientTxContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			ctx := cmd.Context()
-			queryClient := types.NewQueryClient(clientCtx)
-
-			res, err := queryClient.Params(ctx, &types.QueryParamsRequest{})
-			if err != nil {
-				return nil
-			}
-
-			return clientCtx.PrintProto(res.Params)
-		},
+		RunE:  queryParams,
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
 
 	return cmd
+}
+
+func queryParams(cmd *cobra.Command, _ []string) error {
+	clientCtx, err := client.GetClientTxContext(cmd)
+	if err != nil {
+		return err
+	}
+
+	ctx := cmd.Context()
+	queryClient := types.NewQueryClient(clientCtx)
+
+	res, err := queryClient.Params(ctx, &types.QueryParamsRequest{})
+	if err != nil {
+		return err
+	}
+
+	return clientCtx.PrintProto(res.Params)
 }

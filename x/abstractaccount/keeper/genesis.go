@@ -1,11 +1,9 @@
 package keeper
 
 import (
-	abci "github.com/cometbft/cometbft/abci/types"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
+	abci "github.com/cometbft/cometbft/abci/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) []abci.ValidatorUpdate {

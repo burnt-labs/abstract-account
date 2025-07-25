@@ -95,7 +95,7 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	// - the credential
 	//
 	// firstly let's prepare the messages.
-	msgAnys, err := sdkMsgsToAnys(tx.GetMsgs())
+	msgAnys, err := SdkMsgsToAnys(tx.GetMsgs())
 	if err != nil {
 		return ctx, err
 	}
@@ -245,7 +245,7 @@ func prepareCredentials(
 	return signBytes, data.Signature, nil
 }
 
-func sdkMsgsToAnys(msgs []sdk.Msg) ([]*types.Any, error) {
+func SdkMsgsToAnys(msgs []sdk.Msg) ([]*types.Any, error) {
 	anys := []*types.Any{}
 
 	for _, msg := range msgs {

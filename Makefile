@@ -97,6 +97,10 @@ test:
 	go test -mod=readonly ./x/...
 	@echo "✅ Completed tests!"
 
+test-coverage:
+	@echo "🤖 Checking Test Coverage..."
+	./scripts/test-coverage.sh
+
 ################################################################################
 ###                                 Linting                                  ###
 ################################################################################

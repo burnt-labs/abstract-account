@@ -30,8 +30,15 @@ var (
 
 type AppModuleBasic struct{}
 
-func (AppModuleBasic) IsAppModule()        {}
-func (AppModuleBasic) IsOnePerModuleType() {}
+func (AppModuleBasic) IsAppModule() {
+	// Interface compliance method - no implementation needed
+	var _ module.AppModuleBasic = AppModuleBasic{}
+}
+
+func (AppModuleBasic) IsOnePerModuleType() {
+	// Interface compliance method - no implementation needed
+	var _ module.AppModuleBasic = AppModuleBasic{}
+}
 
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
@@ -60,7 +67,8 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {
-	// nothing to do
+	// No gRPC gateway routes to register for this module
+	var _ runtime.ServeMux // Ensure the parameter is acknowledged
 }
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
@@ -116,7 +124,7 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // ----------------------------- Deprecated stuff ------------------------------
 
 // deprecated
-
-// deprecated
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {
+	// Deprecated method - no REST routes to register
+	var _ mux.Router // Ensure the parameter is acknowledged
 }

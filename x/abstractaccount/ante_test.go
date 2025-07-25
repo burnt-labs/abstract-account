@@ -6,8 +6,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txsigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
@@ -350,3 +354,267 @@ func TestAfterTx(t *testing.T) {
 	_, err = decorator.PostHandle(ctx, tx, false, true, postTerminator)
 	require.NoError(t, err)
 }
+
+func TestSigVerificationGasConsumer(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	// create mock account
+	acc, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	// test with NilPubKey - should not consume gas
+	nilPubKey := &types.NilPubKey{}
+	sig := txsigning.SignatureV2{
+		PubKey: nilPubKey,
+		Data: &txsigning.SingleSignatureData{
+			SignMode:  txsigning.SignMode_SIGN_MODE_DIRECT,
+			Signature: []byte("test"),
+		},
+		Sequence: 0,
+	}
+
+	gasMeter := storetypes.NewGasMeter(1000000)
+	err = abstractaccount.SigVerificationGasConsumer(gasMeter, sig, authtypes.DefaultParams())
+	require.NoError(t, err)
+	require.Equal(t, storetypes.Gas(0), gasMeter.GasConsumed())
+
+	// test with regular pubkey - should delegate to default consumer
+	sig.PubKey = acc.GetPubKey()
+	gasMeter = storetypes.NewGasMeter(1000000)
+	err = abstractaccount.SigVerificationGasConsumer(gasMeter, sig, authtypes.DefaultParams())
+	require.NoError(t, err)
+	require.Greater(t, gasMeter.GasConsumed(), storetypes.Gas(0))
+}
+
+func TestIsAbstractAccountTx_ErrorCases(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		ctx     = app.NewContext(false)
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	// create mock accounts
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	app.AccountKeeper.SetAccount(ctx, acc1)
+
+	// test with invalid signer address (account not found)
+	invalidAddr, _ := sdk.AccAddressFromBech32("cosmos1invalid000000000000000000000000000000000")
+	msg := banktypes.NewMsgSend(invalidAddr, acc1.GetAddress(), sdk.NewCoins())
+
+	signer := Signer{
+		keyName: "test1",
+		acc:     acc1,
+	}
+	// modify the signer to use invalid address
+	signer.acc = &mockAccount{address: invalidAddr, pubkey: acc1.GetPubKey()}
+
+	tx, err := prepareTx(ctx, app, keybase, []sdk.Msg{msg}, []Signer{signer}, mockChainID, true)
+	require.NoError(t, err)
+
+	is, _, _, err := abstractaccount.IsAbstractAccountTx(ctx, tx, app.AccountKeeper)
+	require.Error(t, err)
+	require.False(t, is)
+}
+
+func TestBeforeTx_ErrorCases(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	ctx := app.NewContext(false).WithBlockTime(time.Now()).WithChainID(mockChainID)
+
+	// create mock account
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	// register the AbstractAccount
+	absAcc, err := storeCodeAndRegisterAccount(
+		ctx,
+		app,
+		acc1.GetAddress(),
+		testdata.AccountWasm,
+		&BaseInstantiateMsg{PubKey: acc1.GetPubKey().Bytes()},
+		sdk.NewCoins(),
+	)
+	require.NoError(t, err)
+
+	// test with zero block time
+	ctxZeroTime := app.NewContext(false).WithChainID(mockChainID)
+	msg := banktypes.NewMsgSend(absAcc.GetAddress(), acc1.GetAddress(), sdk.NewCoins())
+	signer := Signer{
+		keyName: "test1",
+		acc:     absAcc,
+	}
+
+	tx, err := prepareTx(ctxZeroTime, app, keybase, []sdk.Msg{msg}, []Signer{signer}, mockChainID, true)
+	require.NoError(t, err)
+
+	decorator := makeBeforeTxDecorator(app)
+	_, err = decorator.AnteHandle(ctxZeroTime, tx, false, anteTerminator)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "block time can not be zero")
+}
+
+func TestAfterTx_ErrorCases(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	ctx := app.NewContext(false).WithBlockTime(time.Now()).WithChainID(mockChainID)
+
+	// create mock account
+	acc, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	// test when no signer address is stored (non-AA tx)
+	tx, err := prepareTx(
+		ctx,
+		app,
+		keybase,
+		[]sdk.Msg{banktypes.NewMsgSend(acc.GetAddress(), acc.GetAddress(), sdk.NewCoins())},
+		[]Signer{{keyName: "test1", acc: acc}},
+		mockChainID,
+		true,
+	)
+	require.NoError(t, err)
+
+	decorator := makeAfterTxDecorator(app)
+	newCtx, err := decorator.PostHandle(ctx, tx, false, true, postTerminator)
+	require.NoError(t, err)
+	require.Equal(t, ctx, newCtx) // should pass through unchanged
+}
+
+func TestIsAbstractAccountTx_MoreCases(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		ctx     = app.NewContext(false)
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	// create mock accounts
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	acc2, err := makeMockAccount(keybase, "test2", 2)
+	require.NoError(t, err)
+
+	app.AccountKeeper.SetAccount(ctx, acc1)
+	app.AccountKeeper.SetAccount(ctx, acc2)
+
+	// test case: zero signers
+	tx, err := prepareTx(ctx, app, keybase, []sdk.Msg{
+		banktypes.NewMsgSend(acc1.GetAddress(), acc2.GetAddress(), sdk.NewCoins()),
+	}, []Signer{}, mockChainID, false) // no signers
+	require.NoError(t, err)
+
+	is, _, _, err := abstractaccount.IsAbstractAccountTx(ctx, tx, app.AccountKeeper)
+	require.NoError(t, err)
+	require.False(t, is)
+
+	// test case: two signers with same signer (should return false)
+	signer1 := Signer{
+		keyName: "test1",
+		acc:     acc1,
+	}
+
+	tx, err = prepareTx(ctx, app, keybase, []sdk.Msg{
+		banktypes.NewMsgSend(acc1.GetAddress(), acc2.GetAddress(), sdk.NewCoins()),
+		banktypes.NewMsgSend(acc1.GetAddress(), acc2.GetAddress(), sdk.NewCoins()),
+	}, []Signer{signer1, signer1}, mockChainID, true)
+	require.NoError(t, err)
+
+	is, _, _, err = abstractaccount.IsAbstractAccountTx(ctx, tx, app.AccountKeeper)
+	require.NoError(t, err)
+	require.False(t, is) // more than one signer/signature
+}
+
+func TestPrepareCredentials_ErrorCases(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	ctx := app.NewContext(false).WithBlockTime(time.Now()).WithChainID(mockChainID)
+
+	// create mock account
+	acc, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	// create a tx with multi-signature data (not single signature)
+	multiSigData := &txsigning.MultiSignatureData{
+		BitArray: nil,
+		Signatures: []txsigning.SignatureData{
+			&txsigning.SingleSignatureData{
+				SignMode:  txsigning.SignMode_SIGN_MODE_DIRECT,
+				Signature: []byte("sig1"),
+			},
+		},
+	}
+
+	// This will test the error case in prepareCredentials when sigData is not SingleSignatureData
+	msg := banktypes.NewMsgSend(acc.GetAddress(), acc.GetAddress(), sdk.NewCoins())
+	txBuilder := app.TxConfig().NewTxBuilder()
+	err = txBuilder.SetMsgs(msg)
+	require.NoError(t, err)
+
+	// Set multi-signature to trigger the error
+	sig := txsigning.SignatureV2{
+		PubKey:   acc.GetPubKey(),
+		Data:     multiSigData,
+		Sequence: acc.GetSequence(),
+	}
+	err = txBuilder.SetSignatures(sig)
+	require.NoError(t, err)
+
+	// Create AbstractAccount to trigger the prepareCredentials path
+	absAcc := types.NewAbstractAccountFromAccount(acc)
+	app.AccountKeeper.SetAccount(ctx, absAcc)
+
+	decorator := makeBeforeTxDecorator(app)
+	_, err = decorator.AnteHandle(ctx, txBuilder.GetTx(), false, anteTerminator)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "signature is not a txsigning.SingleSignatureData")
+}
+
+func TestSdkMsgsToAnys(t *testing.T) {
+	// Test with valid messages
+	msg1 := banktypes.NewMsgSend(sdk.AccAddress("addr1"), sdk.AccAddress("addr2"), sdk.NewCoins())
+	msg2 := banktypes.NewMsgSend(sdk.AccAddress("addr3"), sdk.AccAddress("addr4"), sdk.NewCoins())
+
+	anys, err := abstractaccount.SdkMsgsToAnys([]sdk.Msg{msg1, msg2})
+	require.NoError(t, err)
+	require.Len(t, anys, 2)
+	require.NotNil(t, anys[0])
+	require.NotNil(t, anys[1])
+
+	// Test with empty slice
+	anys, err = abstractaccount.SdkMsgsToAnys([]sdk.Msg{})
+	require.NoError(t, err)
+	require.Len(t, anys, 0)
+}
+
+// Mock types for testing error cases
+
+type mockAccount struct {
+	address sdk.AccAddress
+	pubkey  cryptotypes.PubKey
+}
+
+func (m *mockAccount) GetAddress() sdk.AccAddress         { return m.address }
+func (m *mockAccount) SetAddress(sdk.AccAddress) error    { return nil }
+func (m *mockAccount) GetPubKey() cryptotypes.PubKey      { return m.pubkey }
+func (m *mockAccount) SetPubKey(cryptotypes.PubKey) error { return nil }
+func (m *mockAccount) GetAccountNumber() uint64           { return 1 }
+func (m *mockAccount) SetAccountNumber(uint64) error      { return nil }
+func (m *mockAccount) GetSequence() uint64                { return 0 }
+func (m *mockAccount) SetSequence(uint64) error           { return nil }
+func (m *mockAccount) String() string                     { return "" }
+func (m *mockAccount) ProtoMessage()                      {}
+func (m *mockAccount) Reset()                             {}

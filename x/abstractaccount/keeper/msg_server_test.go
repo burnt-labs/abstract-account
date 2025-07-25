@@ -185,3 +185,60 @@ func registerAccount(ctx sdk.Context, msgServer types.MsgServer, codeID uint64) 
 
 	return sdk.AccAddressFromBech32(res.Address)
 }
+
+// ----------------------------- Additional Tests for 100% Coverage -----------------------------
+
+func TestRegisterAccountErrors(t *testing.T) {
+	app := simapptesting.MakeMockApp([]banktypes.Balance{
+		{
+			Address: user.String(),
+			Coins:   userInitialBalance,
+		},
+	})
+
+	ctx := app.NewContext(false).WithBlockTime(time.Now())
+
+	// Set up params allowing code ID 1
+	params, err := types.NewParams(false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas)
+	require.NoError(t, err)
+
+	k := app.AbstractAccountKeeper
+	err = k.SetParams(ctx, params)
+	require.NoError(t, err)
+
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	// Test case 1: Invalid sender address
+	t.Run("invalid sender address", func(t *testing.T) {
+		msgBytes, err := json.Marshal(&AccountInitMsg{
+			PubKey: simapptesting.MakeRandomPubKey().Bytes(),
+		})
+		require.NoError(t, err)
+
+		_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+			Sender: "invalid-address",
+			CodeID: 1,
+			Msg:    msgBytes,
+			Funds:  acctRegisterFunds,
+			Salt:   []byte("test"),
+		})
+		require.Error(t, err)
+	})
+
+	// Test case 2: Contract instantiation failure (using invalid code ID that doesn't exist)
+	t.Run("contract instantiation failure", func(t *testing.T) {
+		msgBytes, err := json.Marshal(&AccountInitMsg{
+			PubKey: simapptesting.MakeRandomPubKey().Bytes(),
+		})
+		require.NoError(t, err)
+
+		_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+			Sender: user.String(),
+			CodeID: 999, // non-existent code ID
+			Msg:    msgBytes,
+			Funds:  acctRegisterFunds,
+			Salt:   []byte("test"),
+		})
+		require.Error(t, err)
+	})
+}
