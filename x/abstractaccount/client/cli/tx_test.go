@@ -1,4 +1,4 @@
-// nolint: errcheck
+// nolint: errcheck, testpackage
 package cli
 
 import (

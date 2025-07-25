@@ -159,6 +159,7 @@ func initRootCmd(
 	)
 
 	server.AddCommandsWithStartCmdOptions(rootCmd, simapp.DefaultNodeHome, newApp, appExport, server.StartCmdOptions{
+		// nolint: revive
 		AddFlags: func(startCmd *cobra.Command) {
 		},
 	})
