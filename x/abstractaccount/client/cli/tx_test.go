@@ -1,3 +1,4 @@
+// nolint: errcheck
 package cli
 
 import (
@@ -421,6 +422,7 @@ func TestRegisterCmdValidateBasicError(t *testing.T) {
 func TestUpdateParamsCmdValidateBasicError(t *testing.T) {
 	cmd := updateParamsCmd()
 	// Invalid params that will fail ValidateBasic
+	// nolint: goconst
 	invalidParams := `{"allow_all_code_ids": true, "allowed_code_ids": [1,2,3], "max_gas_before": 2000000, "max_gas_after": 2000000}`
 	cmd.SetArgs([]string{invalidParams})
 

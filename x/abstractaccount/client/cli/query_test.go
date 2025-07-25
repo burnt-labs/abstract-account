@@ -131,7 +131,7 @@ func TestQueryParamsFunction(t *testing.T) {
 		// We expect this to panic due to nil client context, so we test that it panics
 		require.Panics(t, func() {
 			cmd := &cobra.Command{}
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		})
 	})
 
@@ -140,7 +140,7 @@ func TestQueryParamsFunction(t *testing.T) {
 		// We expect this to panic due to nil client context, so we test that it panics
 		require.Panics(t, func() {
 			cmd := &cobra.Command{}
-			queryParams(cmd, nil)
+			_ = queryParams(cmd, nil)
 		})
 	})
 
@@ -161,7 +161,7 @@ func TestQueryParamsFunction(t *testing.T) {
 				err := queryParams(cmd, []string{})
 				require.Error(t, err)
 			}()
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		}()
 	}) // Test that the function signature is correct and can handle various argument patterns
 	t.Run("function signature compatibility", func(t *testing.T) {
@@ -172,13 +172,13 @@ func TestQueryParamsFunction(t *testing.T) {
 
 		// Test that it accepts the right signature
 		require.Panics(t, func() {
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		})
 		require.Panics(t, func() {
-			queryParams(cmd, []string{"extra", "args"})
+			_ = queryParams(cmd, []string{"extra", "args"})
 		})
 		require.Panics(t, func() {
-			queryParams(cmd, nil)
+			_ = queryParams(cmd, nil)
 		})
 	})
 }
@@ -228,7 +228,7 @@ func TestCommandRunEAssignment(t *testing.T) {
 
 	// Test that RunE function can be called (expect it to panic due to missing context)
 	require.Panics(t, func() {
-		cmd.RunE(cmd, []string{})
+		_ = cmd.RunE(cmd, []string{})
 	})
 }
 
@@ -238,7 +238,7 @@ func TestQueryParamsErrorHandling(t *testing.T) {
 	// We expect this to panic due to nil pointer dereference
 	require.Panics(t, func() {
 		cmd := &cobra.Command{}
-		queryParams(cmd, []string{})
+		_ = queryParams(cmd, []string{})
 	})
 }
 
@@ -325,15 +325,15 @@ func TestQueryParamsFunctionSignature(t *testing.T) {
 
 	// Test that it can be called with the expected parameters (expect panics due to nil context)
 	require.Panics(t, func() {
-		queryParams(cmd, []string{})
+		_ = queryParams(cmd, []string{})
 	})
 
 	require.Panics(t, func() {
-		queryParams(cmd, []string{"arg1", "arg2"})
+		_ = queryParams(cmd, []string{"arg1", "arg2"})
 	})
 
 	require.Panics(t, func() {
-		queryParams(cmd, nil)
+		_ = queryParams(cmd, nil)
 	})
 }
 
@@ -347,7 +347,7 @@ func TestQueryParamsExecutionPath(t *testing.T) {
 
 		// This should panic since we don't have a proper client context
 		require.Panics(t, func() {
-			cmd.RunE(cmd, []string{})
+			_ = cmd.RunE(cmd, []string{})
 		})
 	})
 
@@ -357,12 +357,12 @@ func TestQueryParamsExecutionPath(t *testing.T) {
 
 		// Test with empty string slice
 		require.Panics(t, func() {
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		})
 
 		// Test with nil slice
 		require.Panics(t, func() {
-			queryParams(cmd, nil)
+			_ = queryParams(cmd, nil)
 		})
 
 		// Test with command that has context
@@ -379,7 +379,7 @@ func TestQueryParamsExecutionPath(t *testing.T) {
 				err := queryParams(cmd, []string{})
 				require.Error(t, err)
 			}()
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		}()
 	})
 
@@ -390,7 +390,7 @@ func TestQueryParamsExecutionPath(t *testing.T) {
 
 		// Should panic at GetClientTxContext
 		require.Panics(t, func() {
-			queryParams(emptyCmd, []string{})
+			_ = queryParams(emptyCmd, []string{})
 		})
 	})
 }
@@ -421,7 +421,7 @@ func TestQueryParamsErrorCoverage(t *testing.T) {
 
 		// This should trigger a panic when trying to get client context (no context set)
 		require.Panics(t, func() {
-			queryParams(cmd, []string{})
+			_ = queryParams(cmd, []string{})
 		})
 	})
 

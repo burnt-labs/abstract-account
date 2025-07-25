@@ -541,7 +541,7 @@ func TestCompleteErrorCoverage(t *testing.T) {
 		require.Error(t, err)
 
 		// 3. Check GetParams after failed SetParams
-		params, err = app.AbstractAccountKeeper.GetParams(ctx)
+		_, err = app.AbstractAccountKeeper.GetParams(ctx)
 		// This may or may not error depending on default initialization
 
 		// 4. Test ExportGenesis behavior

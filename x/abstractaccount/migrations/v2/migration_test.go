@@ -110,7 +110,7 @@ func TestMigrateStoreDirect(t *testing.T) {
 		},
 		{
 			name: "no existing params - sets defaults",
-			setupStore: func(store storetypes.KVStore, cdc codec.BinaryCodec) {
+			setupStore: func(_ storetypes.KVStore, _ codec.BinaryCodec) {
 				// Don't set anything
 			},
 			expectError: false,
@@ -129,11 +129,11 @@ func TestMigrateStoreDirect(t *testing.T) {
 		},
 		{
 			name: "invalid params data",
-			setupStore: func(store storetypes.KVStore, cdc codec.BinaryCodec) {
+			setupStore: func(store storetypes.KVStore, _ codec.BinaryCodec) {
 				store.Set(types.KeyParams, []byte("invalid"))
 			},
 			expectError: true,
-			validate:    func(t *testing.T, store storetypes.KVStore, cdc codec.BinaryCodec) {},
+			validate:    func(_ *testing.T, _ storetypes.KVStore, _ codec.BinaryCodec) {},
 		},
 	}
 
@@ -146,7 +146,7 @@ func TestMigrateStoreDirect(t *testing.T) {
 			// Create a basic multi-store for testing
 			ms := app.CommitMultiStore()
 			ms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, nil)
-			ms.LoadLatestVersion()
+			_ = ms.LoadLatestVersion()
 
 			store := ctx.WithMultiStore(ms).KVStore(storeKey)
 			cdc := app.AppCodec()
@@ -179,6 +179,7 @@ func TestMigrateStore_EdgeCases(t *testing.T) {
 			setupParams: func() *types.Params {
 				codeIDs := make([]uint64, 1000)
 				for i := range codeIDs {
+					// nolint: gosec
 					codeIDs[i] = uint64(i + 1)
 				}
 				return &types.Params{
@@ -215,7 +216,7 @@ func TestMigrateStore_EdgeCases(t *testing.T) {
 			// Create a basic multi-store for testing
 			ms := app.CommitMultiStore()
 			ms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, nil)
-			ms.LoadLatestVersion()
+			_ = ms.LoadLatestVersion()
 
 			store := ctx.WithMultiStore(ms).KVStore(storeKey)
 			cdc := app.AppCodec()
@@ -263,7 +264,7 @@ func BenchmarkMigrateStore(b *testing.B) {
 	// Create a basic multi-store for testing
 	ms := app.CommitMultiStore()
 	ms.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, nil)
-	ms.LoadLatestVersion()
+	_ = ms.LoadLatestVersion()
 
 	cdc := app.AppCodec()
 	testCtx := ctx.WithMultiStore(ms)
