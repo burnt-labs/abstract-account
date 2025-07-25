@@ -32,3 +32,26 @@ jobs:
 
       - name: Lint
         run: make lint
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Generate test coverage report
+        run: make test-coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage-report
+          path: |
+            coverage.html
+          retention-days: 30
