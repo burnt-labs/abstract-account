@@ -159,7 +159,7 @@ func initRootCmd(
 	)
 
 	server.AddCommandsWithStartCmdOptions(rootCmd, simapp.DefaultNodeHome, newApp, appExport, server.StartCmdOptions{
-		AddFlags: func(_ *cobra.Command) {
+		AddFlags: func(startCmd *cobra.Command) {
 		},
 	})
 
@@ -173,6 +173,7 @@ func initRootCmd(
 	)
 }
 
+// nolint: unused
 func initTendermintConfig() *tmcfg.Config {
 	return tmcfg.DefaultConfig()
 }
@@ -233,6 +234,7 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
+// nolint: unused
 func createApp(
 	logger log.Logger,
 	db dbm.DB,
@@ -250,6 +252,7 @@ func createApp(
 	)
 }
 
+// nolint: unused
 func exportApp(
 	_ log.Logger, _ dbm.DB, _ io.Writer, _ int64, _ bool,
 	_ []string, _ servertypes.AppOptions, _ []string,

@@ -15,8 +15,8 @@ import (
 
 var (
 	// Use actual default parameters that match the mock app
-	mockParams        = &types.Params{AllowAllCodeIDs: true, AllowedCodeIDs: nil, MaxGasBefore: 2000000, MaxGasAfter: 2000000}
-	mockNextAccountID = uint64(1) // Use actual default next account ID
+	mockParams = &types.Params{AllowAllCodeIDs: true, AllowedCodeIDs: nil, MaxGasBefore: 2000000, MaxGasAfter: 2000000}
+	// mockNextAccountID = uint64(1) // Use actual default next account ID
 )
 
 func TestInitGenesis(t *testing.T) {

@@ -98,7 +98,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 1, m.Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to migrate x/abstract-account from version 1 to 2: %v", err))
 	}
-
 }
 
 func (AppModule) ConsensusVersion() uint64 {

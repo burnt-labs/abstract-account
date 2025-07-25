@@ -186,7 +186,7 @@ func (s *AbstractAccountTypesTestSuite) TestParamsIsAllowed() {
 		expectedResult  bool
 	}{
 		{
-			name:            "allow all - any code ID allowed",
+			name:            "allow all - anyFrom code ID allowed",
 			allowAllCodeIDs: true,
 			allowedCodeIDs:  []uint64{},
 			testCodeID:      999,
@@ -273,7 +273,7 @@ func (s *AbstractAccountTypesTestSuite) TestParamsValidateEdgeCases() {
 		// Create a large sorted list
 		allowedList := make([]uint64, 1000)
 		for i := range allowedList {
-			// nolint: gosec
+			//nolint: gosec
 			allowedList[i] = uint64(i + 1) // 1, 2, 3, ..., 1000
 		}
 
@@ -282,7 +282,6 @@ func (s *AbstractAccountTypesTestSuite) TestParamsValidateEdgeCases() {
 		s.Require().NotNil(params)
 
 		// Test that all IDs are allowed
-		// nolint: gosec
 		for i := uint64(1); i <= 1000; i++ {
 			s.Require().True(params.IsAllowed(i))
 		}
@@ -652,11 +651,11 @@ func (s *AbstractAccountTypesTestSuite) TestRegisterInterfaces() {
 		abstractAcc := types.NewAbstractAccountFromAccount(baseAcc)
 
 		// Test that it can be packed and unpacked as AccountI
-		any, err := codectypes.NewAnyWithValue(abstractAcc)
+		anyFrom, err := codectypes.NewAnyWithValue(abstractAcc)
 		s.Require().NoError(err)
 
 		var acc sdk.AccountI
-		err = registry.UnpackAny(any, &acc)
+		err = registry.UnpackAny(anyFrom, &acc)
 		s.Require().NoError(err)
 		s.Require().NotNil(acc)
 		s.Require().IsType(&types.AbstractAccount{}, acc)
@@ -666,11 +665,11 @@ func (s *AbstractAccountTypesTestSuite) TestRegisterInterfaces() {
 		nilPubKey := &types.NilPubKey{}
 
 		// Test that it can be packed and unpacked as PubKey
-		any, err := codectypes.NewAnyWithValue(nilPubKey)
+		anyFrom, err := codectypes.NewAnyWithValue(nilPubKey)
 		s.Require().NoError(err)
 
 		var pubKey cryptotypes.PubKey
-		err = registry.UnpackAny(any, &pubKey)
+		err = registry.UnpackAny(anyFrom, &pubKey)
 		s.Require().NoError(err)
 		s.Require().NotNil(pubKey)
 		s.Require().IsType(&types.NilPubKey{}, pubKey)
@@ -686,11 +685,11 @@ func (s *AbstractAccountTypesTestSuite) TestRegisterInterfaces() {
 		}
 
 		// Test that it can be packed and unpacked as Msg
-		any, err := codectypes.NewAnyWithValue(msg)
+		anyFrom, err := codectypes.NewAnyWithValue(msg)
 		s.Require().NoError(err)
 
 		var sdkMsg sdk.Msg
-		err = registry.UnpackAny(any, &sdkMsg)
+		err = registry.UnpackAny(anyFrom, &sdkMsg)
 		s.Require().NoError(err)
 		s.Require().NotNil(sdkMsg)
 		s.Require().IsType(&types.MsgRegisterAccount{}, sdkMsg)
@@ -704,11 +703,11 @@ func (s *AbstractAccountTypesTestSuite) TestRegisterInterfaces() {
 		}
 
 		// Test that it can be packed and unpacked as Msg
-		any, err := codectypes.NewAnyWithValue(msg)
+		anyFrom, err := codectypes.NewAnyWithValue(msg)
 		s.Require().NoError(err)
 
 		var sdkMsg sdk.Msg
-		err = registry.UnpackAny(any, &sdkMsg)
+		err = registry.UnpackAny(anyFrom, &sdkMsg)
 		s.Require().NoError(err)
 		s.Require().NotNil(sdkMsg)
 		s.Require().IsType(&types.MsgUpdateParams{}, sdkMsg)
@@ -776,15 +775,15 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 			Params: types.DefaultParams(),
 		}
 
-		any, err := types.NewAnyFromProtoMsg(msg)
+		anyFrom, err := types.NewAnyFromProtoMsg(msg)
 		s.Require().NoError(err)
-		s.Require().NotNil(any)
-		s.Require().Equal("/abstractaccount.v1.MsgUpdateParams", any.TypeURL)
-		s.Require().NotEmpty(any.Value)
+		s.Require().NotNil(anyFrom)
+		s.Require().Equal("/abstractaccount.v1.MsgUpdateParams", anyFrom.TypeURL)
+		s.Require().NotEmpty(anyFrom.Value)
 
 		// Verify the marshaled bytes can be unmarshaled back
 		var decoded types.MsgUpdateParams
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		s.Require().NoError(err)
 		s.Require().Equal(msg.Sender, decoded.Sender)
 	})
@@ -798,15 +797,15 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 			Salt:   []byte("test salt"),
 		}
 
-		any, err := types.NewAnyFromProtoMsg(msg)
+		anyFrom, err := types.NewAnyFromProtoMsg(msg)
 		s.Require().NoError(err)
-		s.Require().NotNil(any)
-		s.Require().Equal("/abstractaccount.v1.MsgRegisterAccount", any.TypeURL)
-		s.Require().NotEmpty(any.Value)
+		s.Require().NotNil(anyFrom)
+		s.Require().Equal("/abstractaccount.v1.MsgRegisterAccount", anyFrom.TypeURL)
+		s.Require().NotEmpty(anyFrom.Value)
 
 		// Verify the marshaled bytes can be unmarshaled back
 		var decoded types.MsgRegisterAccount
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		s.Require().NoError(err)
 		s.Require().Equal(msg.Sender, decoded.Sender)
 		s.Require().Equal(msg.CodeID, decoded.CodeID)
@@ -822,15 +821,15 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 			MaxGasAfter:     300000,
 		}
 
-		any, err := types.NewAnyFromProtoMsg(params)
+		anyFrom, err := types.NewAnyFromProtoMsg(params)
 		s.Require().NoError(err)
-		s.Require().NotNil(any)
-		s.Require().Equal("/abstractaccount.v1.Params", any.TypeURL)
-		s.Require().NotEmpty(any.Value)
+		s.Require().NotNil(anyFrom)
+		s.Require().Equal("/abstractaccount.v1.Params", anyFrom.TypeURL)
+		s.Require().NotEmpty(anyFrom.Value)
 
 		// Verify the marshaled bytes can be unmarshaled back
 		var decoded types.Params
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		s.Require().NoError(err)
 		s.Require().Equal(params.AllowAllCodeIDs, decoded.AllowAllCodeIDs)
 		s.Require().Equal(params.AllowedCodeIDs, decoded.AllowedCodeIDs)
@@ -845,15 +844,15 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 			Amount: math.NewInt(1000),
 		}
 
-		any, err := types.NewAnyFromProtoMsg(msg)
+		anyFrom, err := types.NewAnyFromProtoMsg(msg)
 		s.Require().NoError(err)
-		s.Require().NotNil(any)
-		s.Require().Equal("/cosmos.base.v1beta1.Coin", any.TypeURL)
-		s.Require().NotEmpty(any.Value)
+		s.Require().NotNil(anyFrom)
+		s.Require().Equal("/cosmos.base.v1beta1.Coin", anyFrom.TypeURL)
+		s.Require().NotEmpty(anyFrom.Value)
 
 		// Verify the marshaled bytes can be unmarshaled back
 		var decoded sdk.Coin
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		s.Require().NoError(err)
 		s.Require().Equal(msg.Denom, decoded.Denom)
 		s.Require().Equal(msg.Amount, decoded.Amount)
@@ -873,15 +872,15 @@ func TestNewAnyFromProtoMsg_Standalone(t *testing.T) {
 		// Test with an empty but valid message
 		msg := &types.MsgUpdateParams{}
 
-		any, err := types.NewAnyFromProtoMsg(msg)
+		anyFrom, err := types.NewAnyFromProtoMsg(msg)
 		require.NoError(t, err)
-		require.NotNil(t, any)
-		require.Equal(t, "/abstractaccount.v1.MsgUpdateParams", any.TypeURL)
-		require.NotNil(t, any.Value) // Empty protobuf messages marshal to empty byte slice, not nil
+		require.NotNil(t, anyFrom)
+		require.Equal(t, "/abstractaccount.v1.MsgUpdateParams", anyFrom.TypeURL)
+		require.NotNil(t, anyFrom.Value) // Empty protobuf messages marshal to empty byte slice, not nil
 
 		// Verify it can be unmarshaled
 		var decoded types.MsgUpdateParams
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		require.NoError(t, err)
 	})
 
@@ -898,15 +897,15 @@ func TestNewAnyFromProtoMsg_Standalone(t *testing.T) {
 			Salt: []byte("unique-salt-12345"),
 		}
 
-		any, err := types.NewAnyFromProtoMsg(msg)
+		anyFrom, err := types.NewAnyFromProtoMsg(msg)
 		require.NoError(t, err)
-		require.NotNil(t, any)
-		require.Equal(t, "/abstractaccount.v1.MsgRegisterAccount", any.TypeURL)
-		require.NotEmpty(t, any.Value)
+		require.NotNil(t, anyFrom)
+		require.Equal(t, "/abstractaccount.v1.MsgRegisterAccount", anyFrom.TypeURL)
+		require.NotEmpty(t, anyFrom.Value)
 
 		// Verify complex structure is preserved
 		var decoded types.MsgRegisterAccount
-		err = proto.Unmarshal(any.Value, &decoded)
+		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		require.NoError(t, err)
 		require.Equal(t, msg.Sender, decoded.Sender)
 		require.Equal(t, msg.CodeID, decoded.CodeID)

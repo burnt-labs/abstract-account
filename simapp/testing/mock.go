@@ -89,7 +89,7 @@ func MakeMockAppWithCleanup(balances []banktypes.Balance) (*simapp.SimApp, func(
 		panic(err)
 	}
 
-	// nolint: errcheck // (validators are empty)
+	//nolint: errcheck // (validators are empty)
 	app.InitChain(
 		&abci.RequestInitChain{
 			Validators:      []abci.ValidatorUpdate{},
