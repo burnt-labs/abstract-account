@@ -3,8 +3,8 @@ package v2
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
 
 	storetypes "cosmossdk.io/store/types"
 )

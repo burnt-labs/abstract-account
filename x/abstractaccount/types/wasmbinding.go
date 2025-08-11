@@ -24,6 +24,10 @@ type AfterTx struct {
 }
 
 func NewAnyFromProtoMsg(msg proto.Message) (*Any, error) {
+	if msg == nil {
+		panic("proto: NewAnyFromProtoMsg called with nil")
+	}
+
 	msgBytes, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err

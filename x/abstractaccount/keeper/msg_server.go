@@ -8,7 +8,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 type msgServer struct {

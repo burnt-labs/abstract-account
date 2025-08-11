@@ -37,6 +37,7 @@ ifeq (cleveldb,$(findstring cleveldb,$(MARS_BUILD_OPTIONS)))
 else ifeq (rocksdb,$(findstring rocksdb,$(MARS_BUILD_OPTIONS)))
 	build_tags += gcc rocksdb
 endif
+
 build_tags += $(BUILD_TAGS)
 build_tags := $(strip $(build_tags))
 
@@ -96,6 +97,10 @@ test:
 	go test -mod=readonly ./x/...
 	@echo "✅ Completed tests!"
 
+test-coverage:
+	@echo "🤖 Checking Test Coverage..."
+	./scripts/test-coverage.sh
+
 ################################################################################
 ###                                 Linting                                  ###
 ################################################################################
@@ -111,7 +116,7 @@ lint:
 ###                                 Protobuf                                 ###
 ################################################################################
 
-protoVer=0.11.6
+protoVer=0.16.0
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 containerProtoGenGo=aa-proto-gen-go-$(protoVer)
 

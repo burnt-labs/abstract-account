@@ -34,8 +34,8 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
-	"github.com/larry0x/abstract-account/simapp"
-	"github.com/larry0x/abstract-account/simapp/params"
+	"github.com/burnt-labs/abstract-account/simapp"
+	"github.com/burnt-labs/abstract-account/simapp/params"
 )
 
 func init() {
@@ -99,6 +99,7 @@ func NewRootCmd() *cobra.Command {
 			// sets the RPC client needed for SIGN_MODE_TEXTUAL. This sign mode
 			// is only available if the client is online.
 			if !initClientCtx.Offline {
+				//nolint:gocritic // appendAssign: intentionally creating new slice without modifying original
 				enabledSignModes := append(tx.DefaultSignModes, signing.SignMode_SIGN_MODE_TEXTUAL)
 				txConfigOpts := tx.ConfigOptions{
 					EnabledSignModes:           enabledSignModes,
@@ -158,6 +159,7 @@ func initRootCmd(
 	)
 
 	server.AddCommandsWithStartCmdOptions(rootCmd, simapp.DefaultNodeHome, newApp, appExport, server.StartCmdOptions{
+		// nolint: revive
 		AddFlags: func(startCmd *cobra.Command) {
 		},
 	})
@@ -172,6 +174,7 @@ func initRootCmd(
 	)
 }
 
+// nolint: unused
 func initTendermintConfig() *tmcfg.Config {
 	return tmcfg.DefaultConfig()
 }
@@ -232,6 +235,7 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
+// nolint: unused
 func createApp(
 	logger log.Logger,
 	db dbm.DB,
@@ -249,6 +253,7 @@ func createApp(
 	)
 }
 
+// nolint: unused
 func exportApp(
 	_ log.Logger, _ dbm.DB, _ io.Writer, _ int64, _ bool,
 	_ []string, _ servertypes.AppOptions, _ []string,

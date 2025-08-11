@@ -2,15 +2,18 @@ package testing
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 
 	"cosmossdk.io/log"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -21,8 +24,9 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
-	"github.com/larry0x/abstract-account/simapp"
-	poatypes "github.com/larry0x/simapp/x/poa/types"
+	"github.com/burnt-labs/abstract-account/simapp"
+
+	poatypes "github.com/burnt-labs/abstract-account/simapp/x/poa/types"
 )
 
 const DefaultBondDenom = "utoken"
@@ -45,27 +49,47 @@ var DefaultConsensusParams = &tmproto.ConsensusParams{
 }
 
 func MakeSimpleMockApp() *simapp.SimApp {
-	return MakeMockApp([]banktypes.Balance{})
+	app, _ := MakeMockAppWithCleanup([]banktypes.Balance{})
+	return app
 }
 
 func MakeMockApp(balances []banktypes.Balance) *simapp.SimApp {
+	app, _ := MakeMockAppWithCleanup(balances)
+	return app
+}
+
+// MakeMockAppWithCleanup creates a mock app and returns a cleanup function
+// Use this in tests where you want to properly clean up the temporary directory
+func MakeMockAppWithCleanup(balances []banktypes.Balance) (*simapp.SimApp, func()) {
 	encCfg := simapp.MakeEncodingConfig()
+
+	// Create a unique temporary directory for each test to avoid WASM exclusive.lock conflicts
+	tempDir, err := os.MkdirTemp("", "abstract-account-test-*")
+	if err != nil {
+		panic(err)
+	}
+
+	cleanup := func() {
+		os.RemoveAll(tempDir)
+	}
 
 	app := simapp.NewSimApp(
 		log.NewNopLogger(),
 		dbm.NewMemDB(),
 		nil,
 		true,
-		EmptyAppOptions{},
+		NewTestAppOptions(tempDir),
 		[]wasmkeeper.Option{},
 	)
 
 	gs := MakeMockGenesisState(encCfg.Codec, balances)
 	gsBytes, err := json.Marshal(gs)
 	if err != nil {
+		cleanup()
 		panic(err)
 	}
 
+	//nolint: errcheck // (validators are empty)
 	app.InitChain(
 		&abci.RequestInitChain{
 			Validators:      []abci.ValidatorUpdate{},
@@ -74,7 +98,7 @@ func MakeMockApp(balances []banktypes.Balance) *simapp.SimApp {
 		},
 	)
 
-	return app
+	return app, cleanup
 }
 
 func MakeMockGenesisState(cdc codec.JSONCodec, balances []banktypes.Balance) simapp.GenesisState {
@@ -141,6 +165,23 @@ func MakeRandomConsensusPubKey() cryptotypes.PubKey {
 }
 
 // -------------------------------- AppOptions ---------------------------------
+
+type TestAppOptions struct {
+	homeDir string
+}
+
+func NewTestAppOptions(homeDir string) *TestAppOptions {
+	return &TestAppOptions{homeDir: homeDir}
+}
+
+func (opts *TestAppOptions) Get(key string) interface{} {
+	switch key {
+	case flags.FlagHome:
+		return opts.homeDir
+	default:
+		return nil
+	}
+}
 
 type EmptyAppOptions struct{}
 

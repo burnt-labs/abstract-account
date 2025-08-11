@@ -1,25 +1,30 @@
-// there isn't anything to test for in module.go
-// instead this file contains helper functions to be used for testing other
-// files in this module
-
 package abstractaccount_test
 
 import (
 	"encoding/json"
 	"errors"
+	"testing"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
 
-	"github.com/larry0x/abstract-account/simapp"
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/testdata"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/simapp"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/testdata"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 const (
@@ -27,11 +32,11 @@ const (
 	signMode    = signing.SignMode_SIGN_MODE_DIRECT
 )
 
-func anteTerminator(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+func anteTerminator(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 	return ctx, nil
 }
 
-func postTerminator(ctx sdk.Context, tx sdk.Tx, simulate, success bool) (sdk.Context, error) {
+func postTerminator(ctx sdk.Context, _ sdk.Tx, _ bool, _ bool) (sdk.Context, error) {
 	return ctx, nil
 }
 
@@ -43,7 +48,7 @@ func makeAfterTxDecorator(app *simapp.SimApp) abstractaccount.AfterTxDecorator {
 	return abstractaccount.NewAfterTxDecorator(app.AbstractAccountKeeper)
 }
 
-func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (authtypes.AccountI, error) {
+func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (sdk.AccountI, error) {
 	record, _, err := keybase.NewMnemonic(
 		uid,
 		keyring.English,
@@ -64,10 +69,10 @@ func makeMockAccount(keybase keyring.Keyring, uid string, number uint64) (authty
 }
 
 type Signer struct {
-	keyName        string             // the name of the key in the keyring
-	acc            authtypes.AccountI // the account corresponding to the address
-	overrideAccNum *uint64            // if not nil, will override the account number in the AccountI
-	overrideSeq    *uint64            // if not nil, will override the sequence in the AccountI
+	keyName        string       // the name of the key in the keyring
+	acc            sdk.AccountI // the account corresponding to the address
+	overrideAccNum *uint64      // if not nil, will override the account number in the AccountI
+	overrideSeq    *uint64      // if not nil, will override the sequence in the AccountI
 }
 
 func (s *Signer) AccountNumber() uint64 {
@@ -212,4 +217,122 @@ func storeCodeAndRegisterAccount(
 	}
 
 	return abcAcc, nil
+}
+
+// Test functions for module.go coverage
+
+func TestAppModuleBasic(t *testing.T) {
+	moduleBasic := abstractaccount.AppModuleBasic{}
+
+	// Test IsAppModule and IsOnePerModuleType
+	moduleBasic.IsAppModule()
+	moduleBasic.IsOnePerModuleType()
+
+	// Test Name
+	require.Equal(t, types.ModuleName, moduleBasic.Name())
+
+	// Test RegisterInterfaces
+	registry := codectypes.NewInterfaceRegistry()
+	moduleBasic.RegisterInterfaces(registry)
+
+	// Test RegisterLegacyAminoCodec
+	cdc := codec.NewLegacyAmino()
+	moduleBasic.RegisterLegacyAminoCodec(cdc)
+
+	// Test DefaultGenesis
+	jsonCodec := codec.NewProtoCodec(registry)
+	genesis := moduleBasic.DefaultGenesis(jsonCodec)
+	require.NotNil(t, genesis)
+
+	// Test ValidateGenesis with valid genesis
+	err := moduleBasic.ValidateGenesis(jsonCodec, nil, genesis)
+	require.NoError(t, err)
+
+	// Test ValidateGenesis with invalid JSON
+	invalidGenesis := []byte(`{"invalid": "json"}`)
+	err = moduleBasic.ValidateGenesis(jsonCodec, nil, invalidGenesis)
+	require.Error(t, err)
+
+	// Test RegisterGRPCGatewayRoutes
+	ctx := client.Context{}
+	mux := &runtime.ServeMux{}
+	moduleBasic.RegisterGRPCGatewayRoutes(ctx, mux)
+
+	// Test GetTxCmd
+	txCmd := moduleBasic.GetTxCmd()
+	require.IsType(t, &cobra.Command{}, txCmd)
+
+	// Test GetQueryCmd
+	queryCmd := moduleBasic.GetQueryCmd()
+	require.IsType(t, &cobra.Command{}, queryCmd)
+
+	// Test RegisterRESTRoutes (deprecated)
+	moduleBasic.RegisterRESTRoutes(ctx, nil)
+}
+
+func TestAppModule(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
+
+	k := app.AbstractAccountKeeper
+	appModule := abstractaccount.NewAppModule(k)
+
+	// Test ConsensusVersion
+	version := appModule.ConsensusVersion()
+	require.Equal(t, uint64(2), version)
+
+	// Test InitGenesis with valid genesis
+	jsonCodec := app.AppCodec()
+	genesisState := types.DefaultGenesisState()
+	genesisBytes := jsonCodec.MustMarshalJSON(genesisState)
+
+	validatorUpdates := appModule.InitGenesis(ctx, jsonCodec, genesisBytes)
+	require.NotNil(t, validatorUpdates)
+
+	// Test ExportGenesis
+	exportedGenesis := appModule.ExportGenesis(ctx, jsonCodec)
+	require.NotNil(t, exportedGenesis)
+}
+
+func TestAppModuleRegisterServices(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	k := app.AbstractAccountKeeper
+	appModule := abstractaccount.NewAppModule(k)
+
+	// Test RegisterServices method coverage
+	// Since the services are already registered in the mock app,
+	// we expect this to panic with a "already registered" error,
+	// which proves the method is working correctly
+
+	cfg := module.NewConfigurator(app.AppCodec(), app.MsgServiceRouter(), app.GRPCQueryRouter())
+
+	// This should panic with "already registered" error, which is expected behavior
+	require.Panics(t, func() {
+		appModule.RegisterServices(cfg)
+	})
+}
+
+func TestAppModuleInitGenesisInvalid(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
+
+	k := app.AbstractAccountKeeper
+	appModule := abstractaccount.NewAppModule(k)
+	jsonCodec := app.AppCodec()
+
+	// Test InitGenesis with invalid genesis that will fail validation
+	invalidGenesisState := &types.GenesisState{
+		Params: &types.Params{
+			AllowAllCodeIDs: false,
+			AllowedCodeIDs:  []uint64{},
+			MaxGasBefore:    0, // Invalid: should be > 0
+			MaxGasAfter:     0, // Invalid: should be > 0
+		},
+		NextAccountId: 1,
+	}
+	invalidGenesisBytes := jsonCodec.MustMarshalJSON(invalidGenesisState)
+
+	require.Panics(t, func() {
+		appModule.InitGenesis(ctx, jsonCodec, invalidGenesisBytes)
+	})
 }

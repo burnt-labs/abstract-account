@@ -16,8 +16,8 @@ for dir in $proto_dirs; do
 done
 
 # move proto files to the right places
-if [ -d "./github.com/larry0x/abstract-account" ]; then
-  cp -r github.com/larry0x/abstract-account/* ./
+if [ -d "./github.com/burnt-labs/abstract-account" ]; then
+  cp -r github.com/burnt-labs/abstract-account/* ./
   rm -rf github.com
 fi
 

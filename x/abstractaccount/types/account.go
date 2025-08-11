@@ -11,12 +11,11 @@ import (
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/gogoproto/proto"
 )
 
 var (
-	_ authtypes.AccountI = (*AbstractAccount)(nil)
+	_ sdk.AccountI       = (*AbstractAccount)(nil)
 	_ cryptotypes.PubKey = (*NilPubKey)(nil)
 )
 
@@ -30,7 +29,7 @@ func NewAbstractAccount(address string, accountNum, seq uint64) *AbstractAccount
 	}
 }
 
-func NewAbstractAccountFromAccount(acc authtypes.AccountI) *AbstractAccount {
+func NewAbstractAccountFromAccount(acc sdk.AccountI) *AbstractAccount {
 	return NewAbstractAccount(acc.GetAddress().String(), acc.GetAccountNumber(), acc.GetSequence())
 }
 

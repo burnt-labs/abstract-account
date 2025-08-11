@@ -1,6 +1,7 @@
-package types
+package types_test
 
 import (
+	types "github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
@@ -13,9 +14,9 @@ func TestAmino(t *testing.T) {
 
 	// register crypto and aa amino codecs
 	std.RegisterLegacyAminoCodec(aminoCodec)
-	RegisterLegacyAminoCodec(aminoCodec)
+	types.RegisterLegacyAminoCodec(aminoCodec)
 
-	testAccount := NewAbstractAccount("test-string", 1, 0)
+	testAccount := types.NewAbstractAccount("test-string", 1, 0)
 	pubkey := testAccount.GetPubKey()
 
 	// recreate what ConsumeTxSizeGasDecorator does

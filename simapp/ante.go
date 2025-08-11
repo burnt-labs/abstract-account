@@ -10,8 +10,8 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	abstractaccountkeeper "github.com/larry0x/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	abstractaccountkeeper "github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
 )
 
 // ----------------------------------- Ante ------------------------------------
@@ -19,7 +19,7 @@ import (
 type AnteHandlerOptions struct {
 	ante.HandlerOptions
 
-	WasmCfg               *wasmtypes.WasmConfig
+	WasmCfg               *wasmtypes.NodeConfig
 	TXCounterStoreKey     storetypes.KVStoreService
 	AbstractAccountKeeper abstractaccountkeeper.Keeper
 }

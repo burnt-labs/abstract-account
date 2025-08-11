@@ -3,7 +3,7 @@ package abstractaccount.v1;
 
 import "gogoproto/gogo.proto";
 
-option go_package = "github.com/larry0x/abstract-account/x/abstractaccount/types";
+option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
 message Params {
   // AllowAllCodeIDs determines whether a Wasm code ID can be used to register

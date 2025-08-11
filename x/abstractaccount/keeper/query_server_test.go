@@ -5,12 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 func TestQueryParams(t *testing.T) {
-	ctx, app := setupGenesisTest()
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
 
 	queryServer := keeper.NewQueryServerImpl(app.AbstractAccountKeeper)
 

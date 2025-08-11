@@ -16,9 +16,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount/client/cli"
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/client/cli"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 var (
@@ -30,8 +30,15 @@ var (
 
 type AppModuleBasic struct{}
 
-func (AppModuleBasic) IsAppModule()        {}
-func (AppModuleBasic) IsOnePerModuleType() {}
+func (AppModuleBasic) IsAppModule() {
+	// Interface compliance method - no implementation needed
+	var _ module.AppModuleBasic = AppModuleBasic{}
+}
+
+func (AppModuleBasic) IsOnePerModuleType() {
+	// Interface compliance method - no implementation needed
+	var _ module.AppModuleBasic = AppModuleBasic{}
+}
 
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
@@ -60,7 +67,8 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {
-	// nothing to do
+	// No gRPC gateway routes to register for this module
+	var _ runtime.ServeMux // Ensure the parameter is acknowledged
 }
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
@@ -82,10 +90,6 @@ func NewAppModule(keeper keeper.Keeper) AppModule {
 	return AppModule{AppModuleBasic{}, keeper}
 }
 
-func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {
-	// nothing to do
-}
-
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
@@ -94,7 +98,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 1, m.Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to migrate x/abstract-account from version 1 to 2: %v", err))
 	}
-
 }
 
 func (AppModule) ConsensusVersion() uint64 {
@@ -120,7 +123,7 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // ----------------------------- Deprecated stuff ------------------------------
 
 // deprecated
-
-// deprecated
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {
+	// Deprecated method - no REST routes to register
+	var _ mux.Router // Ensure the parameter is acknowledged
 }

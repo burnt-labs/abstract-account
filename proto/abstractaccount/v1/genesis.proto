@@ -3,7 +3,7 @@ package abstractaccount.v1;
 
 import "abstractaccount/v1/params.proto";
 
-option go_package = "github.com/larry0x/abstract-account/x/abstractaccount/types";
+option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
 message GenesisState {
   Params params          = 1;

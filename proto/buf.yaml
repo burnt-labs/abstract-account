@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/larry0x/abstract-account
+name: buf.build/burnt-labs/abstract-account
 deps:
   - buf.build/cosmos/cosmos-proto
   - buf.build/cosmos/cosmos-sdk

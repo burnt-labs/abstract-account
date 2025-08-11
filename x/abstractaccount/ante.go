@@ -17,8 +17,8 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	"github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 var (
@@ -95,7 +95,7 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	// - the credential
 	//
 	// firstly let's prepare the messages.
-	msgAnys, err := sdkMsgsToAnys(tx.GetMsgs())
+	msgAnys, err := SdkMsgsToAnys(tx.GetMsgs())
 	if err != nil {
 		return ctx, err
 	}
@@ -221,7 +221,7 @@ func IsAbstractAccountTx(ctx sdk.Context, tx sdk.Tx, ak authante.AccountKeeper) 
 }
 
 func prepareCredentials(
-	ctx sdk.Context, tx sdk.Tx, signerAcc authtypes.AccountI,
+	ctx sdk.Context, tx sdk.Tx, signerAcc sdk.AccountI,
 	sigData txsigning.SignatureData, handler *txsign.HandlerMap,
 ) ([]byte, []byte, error) {
 	signerData := authsigning.SignerData{
@@ -245,7 +245,7 @@ func prepareCredentials(
 	return signBytes, data.Signature, nil
 }
 
-func sdkMsgsToAnys(msgs []sdk.Msg) ([]*types.Any, error) {
+func SdkMsgsToAnys(msgs []sdk.Msg) ([]*types.Any, error) {
 	anys := []*types.Any{}
 
 	for _, msg := range msgs {

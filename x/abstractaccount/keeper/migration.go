@@ -5,7 +5,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	v2 "github.com/larry0x/abstract-account/x/abstractaccount/migrations/v2"
+	v2 "github.com/burnt-labs/abstract-account/x/abstractaccount/migrations/v2"
 )
 
 // Migrator is a struct for handling in-place store migrations.

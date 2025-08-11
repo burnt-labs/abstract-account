@@ -54,9 +54,9 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
-	"github.com/larry0x/abstract-account/x/abstractaccount"
-	abstractaccountkeeper "github.com/larry0x/abstract-account/x/abstractaccount/keeper"
-	abstractaccounttypes "github.com/larry0x/abstract-account/x/abstractaccount/types"
+	"github.com/burnt-labs/abstract-account/x/abstractaccount"
+	abstractaccountkeeper "github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
+	abstractaccounttypes "github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
 const (
@@ -208,17 +208,17 @@ func NewSimApp(
 		runtime.NewKVStoreService(keys[wasmtypes.StoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		app.MsgServiceRouter(),
-		app.GRPCQueryRouter(),
+		nil, // wasmtypes.StakingKeeper
+		nil, // wasmtypes.DistributionKeeper
+		nil, // wasmtypes.ICS4Wrapper
+		nil, // wasmtypes.ChannelKeeper
+		nil, // wasmtypes.ChannelKeeperV2
+		nil, // wasmtypes.ICS20TransferPortSource
+		nil, // wasmkeeper.MessageRouter
+		nil, // wasmkeeper.GRPCQueryRouter
 		wasmDir,
 		wasmCfg,
+		wasmtypes.VMConfig{},
 		wasmCapabilities,
 		Authority,
 		wasmOpts...,
@@ -274,7 +274,9 @@ func NewSimApp(
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
 
 	app.configurator = module.NewConfigurator(app.cdc, app.MsgServiceRouter(), app.GRPCQueryRouter())
-	app.ModuleManager.RegisterServices(app.configurator)
+	if err := app.ModuleManager.RegisterServices(app.configurator); err != nil {
+		panic(fmt.Errorf("failed to register module services: %w", err))
+	}
 
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
@@ -310,7 +312,7 @@ func NewSimApp(
 	return app
 }
 
-func (app *SimApp) setAnteHandler(txCfg client.TxConfig, wasmCfg wasmtypes.WasmConfig, txCounterStoreKey corestore.KVStoreService) {
+func (app *SimApp) setAnteHandler(txCfg client.TxConfig, wasmCfg wasmtypes.NodeConfig, txCounterStoreKey corestore.KVStoreService) {
 	anteHandler, err := NewAnteHandler(
 		AnteHandlerOptions{
 			HandlerOptions: ante.HandlerOptions{
@@ -466,19 +468,19 @@ func blockedAddresses() map[string]bool {
 	return modAccAddrs
 }
 
-func wasmParams(appOpts servertypes.AppOptions) (string, wasmtypes.WasmConfig, string) {
+func wasmParams(appOpts servertypes.AppOptions) (string, wasmtypes.NodeConfig, []string) {
 	// dir
 	homePath := cast.ToString(appOpts.Get(flags.FlagHome))
 	wasmDir := filepath.Join(homePath, "wasm")
 
 	// config
-	wasmCfg, err := wasm.ReadWasmConfig(appOpts)
+	wasmCfg, err := wasm.ReadNodeConfig(appOpts)
 	if err != nil {
 		panic(fmt.Sprintf("error while reading wasm config: %s", err))
 	}
 
 	// capabilities
-	wasmCapabilities := "iterator,staking,stargate,cosmwasm_1_1,cosmwasm_1_2"
+	wasmCapabilities := wasmkeeper.BuiltInCapabilities()
 
 	return wasmDir, wasmCfg, wasmCapabilities
 }
