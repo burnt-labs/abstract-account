@@ -33,6 +33,7 @@ impl TypeUrl for MsgRegisterAccount {
     const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccount";
 }
 
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct MsgRegisterAccountResponse {
     #[prost(string, tag = "1")]
