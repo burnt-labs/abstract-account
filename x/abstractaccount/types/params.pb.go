@@ -23,6 +23,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// Params defines the parameters for the abstractaccount module.
 type Params struct {
 	// AllowAllCodeIDs determines whether a Wasm code ID can be used to register
 	// AbstractAccounts:

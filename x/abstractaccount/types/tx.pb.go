@@ -32,6 +32,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// MsgUpdateParams is the message for updating the module parameters.
 type MsgUpdateParams struct {
 	Sender string  `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
 	Params *Params `protobuf:"bytes,2,opt,name=params,proto3" json:"params,omitempty"`
@@ -84,6 +85,7 @@ func (m *MsgUpdateParams) GetParams() *Params {
 	return nil
 }
 
+// MsgUpdateParamsResponse is the response message for MsgUpdateParams.
 type MsgUpdateParamsResponse struct {
 }
 
@@ -120,6 +122,7 @@ func (m *MsgUpdateParamsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 
+// MsgRegisterAccount is the message for registering a new AbstractAccount.
 type MsgRegisterAccount struct {
 	// Sender is the actor who signs the message
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
@@ -202,6 +205,7 @@ func (m *MsgRegisterAccount) GetSalt() []byte {
 	return nil
 }
 
+// MsgRegisterAccountResponse is the response message for MsgRegisterAccount.
 type MsgRegisterAccountResponse struct {
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Data    []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
@@ -313,9 +317,9 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MsgClient interface {
-	// Update the module's parameters. Can only be called by the authority.
+	// UpdateParams updates the module's parameters. Can only be called by the authority.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
-	// Register a new AbstractAccount.
+	// RegisterAccount registers a new AbstractAccount.
 	RegisterAccount(ctx context.Context, in *MsgRegisterAccount, opts ...grpc.CallOption) (*MsgRegisterAccountResponse, error)
 }
 
@@ -347,9 +351,9 @@ func (c *msgClient) RegisterAccount(ctx context.Context, in *MsgRegisterAccount,
 
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
-	// Update the module's parameters. Can only be called by the authority.
+	// UpdateParams updates the module's parameters. Can only be called by the authority.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
-	// Register a new AbstractAccount.
+	// RegisterAccount registers a new AbstractAccount.
 	RegisterAccount(context.Context, *MsgRegisterAccount) (*MsgRegisterAccountResponse, error)
 }
 

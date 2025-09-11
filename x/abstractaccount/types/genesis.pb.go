@@ -22,6 +22,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// GenesisState defines the genesis state of the abstractaccount module.
 type GenesisState struct {
 	Params        *Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
 	NextAccountId uint64  `protobuf:"varint,2,opt,name=next_account_id,json=nextAccountId,proto3" json:"next_account_id,omitempty"`
