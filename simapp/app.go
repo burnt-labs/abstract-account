@@ -208,13 +208,14 @@ func NewSimApp(
 		runtime.NewKVStoreService(keys[wasmtypes.StoreKey]),
 		app.AccountKeeper,
 		app.BankKeeper,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
+		nil, // wasmtypes.StakingKeeper
+		nil, // wasmtypes.DistributionKeeper
+		nil, // wasmtypes.ICS4Wrapper
+		nil, // wasmtypes.ChannelKeeper
+		nil, // wasmtypes.ChannelKeeperV2
+		nil, // wasmtypes.ICS20TransferPortSource
+		nil, // wasmkeeper.MessageRouter
+		nil, // wasmkeeper.GRPCQueryRouter
 		wasmDir,
 		wasmCfg,
 		wasmtypes.VMConfig{},
