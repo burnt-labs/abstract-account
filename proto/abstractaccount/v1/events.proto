@@ -5,6 +5,7 @@ import "gogoproto/gogo.proto";
 
 option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
+// EventAccountRegistered is emitted when an AbstractAccount is registered.
 message EventAccountRegistered {
   string creator       = 1;
   uint64 code_id       = 2 [(gogoproto.customname) = "CodeID"];

@@ -116,12 +116,12 @@ lint:
 ###                                 Protobuf                                 ###
 ################################################################################
 
-protoVer=0.16.0
+protoVer=0.17.1
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
-containerProtoGenGo=aa-proto-gen-go-$(protoVer)
+protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace -e GOTOOLCHAIN=auto $(protoImageName)
+HTTPS_GIT := https://github.com/burnt-labs/xion.git
 
-proto-go-gen:
+proto-gen:
 	@echo "🤖 Generating Go code from protobuf..."
-	@if docker ps -a --format '{{.Names}}' | grep -Eq "^${containerProtoGenGo}$$"; then docker start -a $(containerProtoGenGo); else docker run --name $(containerProtoGenGo) -v $(CURDIR):/workspace --workdir /workspace $(protoImageName) \
-		sh ./scripts/protocgen.sh; fi
+	@$(protoImage) sh ./scripts/protocgen.sh
 	@echo "✅ Completed Go code generation!"

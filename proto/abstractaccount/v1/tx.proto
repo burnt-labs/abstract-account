@@ -8,18 +8,20 @@ import "gogoproto/gogo.proto";
 
 option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
+// Msg defines the abstractaccount Msg service.
 service Msg {
   option (cosmos.msg.v1.service) = true;
 
-  // Update the module's parameters. Can only be called by the authority.
+  // UpdateParams updates the module's parameters. Can only be called by the authority.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 
-  // Register a new AbstractAccount.
+  // RegisterAccount registers a new AbstractAccount.
   rpc RegisterAccount(MsgRegisterAccount) returns (MsgRegisterAccountResponse);
 }
 
 // ------------------------------- UpdateParams --------------------------------
 
+// MsgUpdateParams is the message for updating the module parameters.
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "sender";
 
@@ -27,10 +29,12 @@ message MsgUpdateParams {
   Params params = 2;
 }
 
+// MsgUpdateParamsResponse is the response message for MsgUpdateParams.
 message MsgUpdateParamsResponse {}
 
 // ------------------------------ RegisterAccount ------------------------------
 
+// MsgRegisterAccount is the message for registering a new AbstractAccount.
 message MsgRegisterAccount {
   option (cosmos.msg.v1.signer) = "sender";
 
@@ -56,6 +60,7 @@ message MsgRegisterAccount {
   bytes salt = 5;
 }
 
+// MsgRegisterAccountResponse is the response message for MsgRegisterAccount.
 message MsgRegisterAccountResponse {
   string address = 1;
   bytes  data    = 2;

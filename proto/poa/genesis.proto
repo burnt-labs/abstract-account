@@ -6,6 +6,8 @@ import "tendermint/abci/types.proto";
 
 option go_package = "github.com/burnt-labs/abstract-account/simapp/x/poa/types";
 
+// GenesisState defines the poa module's genesis state.
+// It contains the initial set of validators for the chain.
 message GenesisState {
   repeated tendermint.abci.ValidatorUpdate validators = 1 [(gogoproto.nullable) = false];
 }

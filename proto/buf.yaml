@@ -1,10 +1,15 @@
-version: v1
-name: buf.build/burnt-labs/abstract-account
+version: v2
+modules:
+  - name: buf.build/burnt-labs/abstractaccount
+    path: ./
+    excludes:
+      - poa
 deps:
   - buf.build/cosmos/cosmos-proto
   - buf.build/cosmos/cosmos-sdk
   - buf.build/cosmos/gogo-proto
   - buf.build/googleapis/googleapis
+  - buf.build/protocolbuffers/wellknowntypes
 breaking:
   use:
     - FILE

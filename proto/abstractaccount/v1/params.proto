@@ -5,6 +5,7 @@ import "gogoproto/gogo.proto";
 
 option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
+// Params defines the parameters for the abstractaccount module.
 message Params {
   // AllowAllCodeIDs determines whether a Wasm code ID can be used to register
   // AbstractAccounts:

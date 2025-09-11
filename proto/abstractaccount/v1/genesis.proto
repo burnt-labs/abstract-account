@@ -5,6 +5,7 @@ import "abstractaccount/v1/params.proto";
 
 option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/types";
 
+// GenesisState defines the genesis state of the abstractaccount module.
 message GenesisState {
   Params params          = 1;
   uint64 next_account_id = 2;
