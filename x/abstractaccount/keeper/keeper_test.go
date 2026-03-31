@@ -21,17 +21,18 @@ func TestNewKeeper(t *testing.T) {
 	// Test panic conditions
 	cdc := app.AppCodec()
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
+	transientStoreKey := storetypes.NewTransientStoreKey(types.TransientStoreKey)
 	contractKeeper := wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper)
 
 	t.Run("panic when AccountKeeper is nil", func(t *testing.T) {
 		require.Panics(t, func() {
-			keeper.NewKeeper(cdc, storeKey, nil, contractKeeper, "authority")
+			keeper.NewKeeper(cdc, storeKey, transientStoreKey, nil, contractKeeper, "authority")
 		})
 	})
 
 	t.Run("panic when ContractKeeper is nil", func(t *testing.T) {
 		require.Panics(t, func() {
-			keeper.NewKeeper(cdc, storeKey, app.AccountKeeper, nil, "authority")
+			keeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, nil, "authority")
 		})
 	})
 }

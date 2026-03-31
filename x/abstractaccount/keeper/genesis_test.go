@@ -61,9 +61,10 @@ func TestExportGenesisPanic(t *testing.T) {
 	// Create a fresh keeper with no params set to trigger panic
 	cdc := app.AppCodec()
 	storeKey := storetypes.NewKVStoreKey("test-abstractaccount-panic")
+	transientStoreKey := storetypes.NewTransientStoreKey("test-abstractaccount-panic_transient")
 	contractKeeper := wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper)
 
-	freshKeeper := abstractaccountkeeper.NewKeeper(cdc, storeKey, app.AccountKeeper, contractKeeper, "authority")
+	freshKeeper := abstractaccountkeeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, contractKeeper, "authority")
 
 	// This should panic because no params are set
 	require.Panics(t, func() {

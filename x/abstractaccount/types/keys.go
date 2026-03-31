@@ -1,8 +1,9 @@
 package types
 
 const (
-	ModuleName = "abstractaccount"
-	StoreKey   = ModuleName
+	ModuleName        = "abstractaccount"
+	StoreKey          = ModuleName
+	TransientStoreKey = ModuleName + "_transient"
 )
 
 var (

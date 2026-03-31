@@ -11,6 +11,7 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txsigning "github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
@@ -598,6 +599,265 @@ func TestSdkMsgsToAnys(t *testing.T) {
 	anys, err = abstractaccount.SdkMsgsToAnys([]sdk.Msg{})
 	require.NoError(t, err)
 	require.Len(t, anys, 0)
+}
+
+// TestBeforeTx_UnorderedTx tests handleUnorderedTx which enforces
+// replay protection for unordered AbstractAccount transactions.
+func TestBeforeTx_UnorderedTx(t *testing.T) {
+	var (
+		app     = simapptesting.MakeSimpleMockApp()
+		keybase = keyring.NewInMemory(app.Codec())
+	)
+
+	blockTime := time.Now()
+	ctx := app.NewContext(false).WithBlockTime(blockTime).WithChainID(mockChainID)
+
+	// create a signing key and register it as an AbstractAccount
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	absAcc, err := storeCodeAndRegisterAccount(
+		ctx,
+		app,
+		acc1.GetAddress(),
+		testdata.AccountWasm,
+		&BaseInstantiateMsg{PubKey: acc1.GetPubKey().Bytes()},
+		sdk.NewCoins(),
+	)
+	require.NoError(t, err)
+
+	acc2, err := makeMockAccount(keybase, "test2", 2)
+	require.NoError(t, err)
+
+	msg := banktypes.NewMsgSend(absAcc.GetAddress(), acc2.GetAddress(), sdk.NewCoins())
+
+	// helper: build an ordered signer (sequence override = 0 for unordered mode)
+	zeroSeq := uint64(0)
+	unorderedSigner := Signer{
+		keyName:        "test1",
+		acc:            absAcc,
+		overrideAccNum: nil,
+		overrideSeq:    &zeroSeq,
+	}
+
+	for _, tc := range []struct {
+		desc              string
+		timeoutTimestamp  time.Time
+		simulate          bool
+		expOk             bool
+		expErrContains    string
+	}{
+		{
+			desc:             "valid unordered tx",
+			timeoutTimestamp: blockTime.Add(5 * time.Minute),
+			simulate:         false,
+			expOk:            true,
+		},
+		{
+			desc:             "valid unordered tx in simulation mode",
+			timeoutTimestamp: blockTime.Add(5 * time.Minute),
+			simulate:         true,
+			expOk:            true,
+		},
+		{
+			desc:             "zero timeout_timestamp (not set)",
+			timeoutTimestamp: time.Time{},
+			simulate:         false,
+			expOk:            false,
+			expErrContains:   "timeout_timestamp",
+		},
+		{
+			desc:             "expired timeout_timestamp",
+			timeoutTimestamp: blockTime.Add(-1 * time.Second),
+			simulate:         false,
+			expOk:            false,
+			expErrContains:   "timeout_timestamp that has already passed",
+		},
+		{
+			desc:             "timeout_timestamp exceeds max TTL",
+			timeoutTimestamp: blockTime.Add(abstractaccount.DefaultMaxUnorderedTTL + time.Minute),
+			simulate:         false,
+			expOk:            false,
+			expErrContains:   "ttl exceeds",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			txBuilder := app.TxConfig().NewTxBuilder()
+			require.NoError(t, txBuilder.SetMsgs(msg))
+			txBuilder.SetUnordered(true)
+			txBuilder.SetTimeoutTimestamp(tc.timeoutTimestamp)
+
+			// round 1: empty sigs
+			emptySig := txsigning.SignatureV2{
+				PubKey: absAcc.GetPubKey(),
+				Data: &txsigning.SingleSignatureData{
+					SignMode:  signMode,
+					Signature: nil,
+				},
+				Sequence: 0,
+			}
+			require.NoError(t, txBuilder.SetSignatures(emptySig))
+
+			// round 2: sign
+			signerData := authsigning.SignerData{
+				Address:       absAcc.GetAddress().String(),
+				ChainID:       mockChainID,
+				AccountNumber: unorderedSigner.AccountNumber(),
+				Sequence:      0,
+				PubKey:        absAcc.GetPubKey(),
+			}
+			signBytes, err := authsigning.GetSignBytesAdapter(ctx, app.TxConfig().SignModeHandler(), signMode, signerData, txBuilder.GetTx())
+			require.NoError(t, err)
+			sigBytes, _, err := keybase.Sign("test1", signBytes, signMode)
+			require.NoError(t, err)
+			finalSig := txsigning.SignatureV2{
+				PubKey: absAcc.GetPubKey(),
+				Data: &txsigning.SingleSignatureData{
+					SignMode:  signMode,
+					Signature: sigBytes,
+				},
+				Sequence: 0,
+			}
+			require.NoError(t, txBuilder.SetSignatures(finalSig))
+
+			tx := txBuilder.GetTx()
+			decorator := makeBeforeTxDecorator(app)
+			_, err = decorator.AnteHandle(ctx, tx, tc.simulate, anteTerminator)
+
+			if tc.expOk {
+				require.NoError(t, err, tc.desc)
+				app.AbstractAccountKeeper.DeleteSignerAddress(ctx)
+			} else {
+				require.Error(t, err, tc.desc)
+				if tc.expErrContains != "" {
+					require.Contains(t, err.Error(), tc.expErrContains, tc.desc)
+				}
+			}
+		})
+	}
+}
+
+// TestBeforeTx_UnorderedTx_ReplayRejection verifies that replaying the same
+// unordered nonce (sender + timeout_timestamp) is rejected.
+func TestBeforeTx_UnorderedTx_ReplayRejection(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	keybase := keyring.NewInMemory(app.Codec())
+
+	blockTime := time.Now()
+	ctx := app.NewContext(false).WithBlockTime(blockTime).WithChainID(mockChainID)
+
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	absAcc, err := storeCodeAndRegisterAccount(
+		ctx, app, acc1.GetAddress(), testdata.AccountWasm,
+		&BaseInstantiateMsg{PubKey: acc1.GetPubKey().Bytes()}, sdk.NewCoins(),
+	)
+	require.NoError(t, err)
+
+	timeoutTS := blockTime.Add(5 * time.Minute)
+
+	buildTx := func() sdk.Tx {
+		txBuilder := app.TxConfig().NewTxBuilder()
+		require.NoError(t, txBuilder.SetMsgs(banktypes.NewMsgSend(absAcc.GetAddress(), acc1.GetAddress(), sdk.NewCoins())))
+		txBuilder.SetUnordered(true)
+		txBuilder.SetTimeoutTimestamp(timeoutTS)
+
+		emptySig := txsigning.SignatureV2{
+			PubKey:   absAcc.GetPubKey(),
+			Data:     &txsigning.SingleSignatureData{SignMode: signMode, Signature: nil},
+			Sequence: 0,
+		}
+		require.NoError(t, txBuilder.SetSignatures(emptySig))
+
+		signerData := authsigning.SignerData{
+			Address:       absAcc.GetAddress().String(),
+			ChainID:       mockChainID,
+			AccountNumber: absAcc.GetAccountNumber(),
+			Sequence:      0,
+			PubKey:        absAcc.GetPubKey(),
+		}
+		signBytes, err := authsigning.GetSignBytesAdapter(ctx, app.TxConfig().SignModeHandler(), signMode, signerData, txBuilder.GetTx())
+		require.NoError(t, err)
+		sigBytes, _, err := keybase.Sign("test1", signBytes, signMode)
+		require.NoError(t, err)
+		require.NoError(t, txBuilder.SetSignatures(txsigning.SignatureV2{
+			PubKey:   absAcc.GetPubKey(),
+			Data:     &txsigning.SingleSignatureData{SignMode: signMode, Signature: sigBytes},
+			Sequence: 0,
+		}))
+		return txBuilder.GetTx()
+	}
+
+	// First submission should succeed
+	decorator := makeBeforeTxDecorator(app)
+	_, err = decorator.AnteHandle(ctx, buildTx(), false, anteTerminator)
+	require.NoError(t, err)
+	app.AbstractAccountKeeper.DeleteSignerAddress(ctx)
+
+	// Second submission with same nonce must be rejected
+	decorator = makeBeforeTxDecorator(app)
+	_, err = decorator.AnteHandle(ctx, buildTx(), false, anteTerminator)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unordered nonce")
+}
+
+// TestBeforeTx_UnorderedTx_NonZeroSequenceRejected verifies that unordered
+// transactions with a non-zero sequence field are rejected.
+func TestBeforeTx_UnorderedTx_NonZeroSequenceRejected(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	keybase := keyring.NewInMemory(app.Codec())
+
+	blockTime := time.Now()
+	ctx := app.NewContext(false).WithBlockTime(blockTime).WithChainID(mockChainID)
+
+	acc1, err := makeMockAccount(keybase, "test1", 1)
+	require.NoError(t, err)
+
+	absAcc, err := storeCodeAndRegisterAccount(
+		ctx, app, acc1.GetAddress(), testdata.AccountWasm,
+		&BaseInstantiateMsg{PubKey: acc1.GetPubKey().Bytes()}, sdk.NewCoins(),
+	)
+	require.NoError(t, err)
+
+	timeoutTS := blockTime.Add(5 * time.Minute)
+
+	// Build unordered tx with non-zero sequence
+	txBuilder := app.TxConfig().NewTxBuilder()
+	require.NoError(t, txBuilder.SetMsgs(banktypes.NewMsgSend(absAcc.GetAddress(), acc1.GetAddress(), sdk.NewCoins())))
+	txBuilder.SetUnordered(true)
+	txBuilder.SetTimeoutTimestamp(timeoutTS)
+
+	// Use sequence = 1 (should be rejected for unordered txs)
+	nonZeroSeq := uint64(1)
+	emptySig := txsigning.SignatureV2{
+		PubKey:   absAcc.GetPubKey(),
+		Data:     &txsigning.SingleSignatureData{SignMode: signMode, Signature: nil},
+		Sequence: nonZeroSeq,
+	}
+	require.NoError(t, txBuilder.SetSignatures(emptySig))
+
+	signerData := authsigning.SignerData{
+		Address:       absAcc.GetAddress().String(),
+		ChainID:       mockChainID,
+		AccountNumber: absAcc.GetAccountNumber(),
+		Sequence:      nonZeroSeq,
+		PubKey:        absAcc.GetPubKey(),
+	}
+	signBytes, err := authsigning.GetSignBytesAdapter(ctx, app.TxConfig().SignModeHandler(), signMode, signerData, txBuilder.GetTx())
+	require.NoError(t, err)
+	sigBytes, _, err := keybase.Sign("test1", signBytes, signMode)
+	require.NoError(t, err)
+	require.NoError(t, txBuilder.SetSignatures(txsigning.SignatureV2{
+		PubKey:   absAcc.GetPubKey(),
+		Data:     &txsigning.SingleSignatureData{SignMode: signMode, Signature: sigBytes},
+		Sequence: nonZeroSeq,
+	}))
+
+	decorator := makeBeforeTxDecorator(app)
+	_, err = decorator.AnteHandle(ctx, txBuilder.GetTx(), false, anteTerminator)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "sequence is not allowed for unordered transactions")
 }
 
 // Mock types for testing error cases

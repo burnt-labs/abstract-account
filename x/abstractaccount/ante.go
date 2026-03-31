@@ -2,6 +2,7 @@ package abstractaccount
 
 import (
 	"encoding/json"
+	"time"
 
 	"cosmossdk.io/core/gas"
 	"cosmossdk.io/errors"
@@ -74,37 +75,67 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		return svd.AnteHandle(ctx, tx, simulate, next)
 	}
 
+	// handle the AA transaction validation and contract invocation
+	if err := d.handleAATransaction(ctx, tx, signerAcc, sig, simulate); err != nil {
+		return ctx, err
+	}
+
+	return next(ctx, tx, simulate)
+}
+
+// handleAATransaction processes an AbstractAccount transaction by validating
+// the context, checking sequence/nonce, and invoking the before_tx handler.
+func (d BeforeTxDecorator) handleAATransaction(
+	ctx sdk.Context, tx sdk.Tx, signerAcc *types.AbstractAccount,
+	sig *txsigning.SignatureV2, simulate bool,
+) error {
 	if ctx.BlockTime().UnixNano() <= 0 {
-		return ctx, types.ErrNoBlockTime.Wrapf("expected a positive block time, received %d", ctx.BlockTime().UnixNano())
+		return types.ErrNoBlockTime.Wrapf("expected a positive block time, received %d", ctx.BlockTime().UnixNano())
 	}
 
 	// save the account address to the module store. we will need it in the
 	// posthandler
 	d.aak.SetSignerAddress(ctx, signerAcc.GetAddress())
 
-	// check account sequence number
-	if sig.Sequence != signerAcc.GetSequence() {
-		return ctx, sdkerrors.ErrWrongSequence.Wrapf("account sequence mismatch, expected %d, got %d", signerAcc.GetSequence(), sig.Sequence)
+	// Determine whether this is an unordered AA transaction. Unordered txs use
+	// a per-tx nonce + timeout_timestamp for replay protection instead of the
+	// monotonic account sequence, so the sequence check and nonce handling
+	// must be branched here.
+	utx, isUnordered := tx.(sdk.TxWithUnordered)
+	if isUnordered && utx.GetUnordered() {
+		if err := d.handleUnorderedTx(ctx, tx, signerAcc, sig, simulate); err != nil {
+			return err
+		}
+	} else {
+		// check account sequence number for ordered transactions
+		if sig.Sequence != signerAcc.GetSequence() {
+			return sdkerrors.ErrWrongSequence.Wrapf("account sequence mismatch, expected %d, got %d", signerAcc.GetSequence(), sig.Sequence)
+		}
 	}
 
-	// now that we've determined the tx is an AA tx, let us prepare the SudoMsg
-	// that will be used to invoke the account contract. The msg includes:
-	//
-	// - the messages in the tx, converted to []Any
-	// - the sign bytes
-	// - the credential
-	//
-	// firstly let's prepare the messages.
+	// invoke the account contract's before_tx handler
+	return d.invokeBeforeTx(ctx, tx, signerAcc, simulate)
+}
+
+// invokeBeforeTx prepares the SudoMsg and invokes the account contract's before_tx handler.
+func (d BeforeTxDecorator) invokeBeforeTx(
+	ctx sdk.Context, tx sdk.Tx, signerAcc *types.AbstractAccount, simulate bool,
+) error {
+	// prepare the messages in the tx, converted to []Any
 	msgAnys, err := SdkMsgsToAnys(tx.GetMsgs())
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
-	// then let us the prepare the sign bytes and credentiale.
+	// prepare the sign bytes and credential
 	// logics here are mostly copied over from the SigVerificationDecorator.
-	signBytes, sigBytes, err := prepareCredentials(ctx, tx, signerAcc, sig.Data, d.signModeHandler)
+	sigs, err := tx.(authsigning.SigVerifiableTx).GetSignaturesV2()
 	if err != nil {
-		return ctx, err
+		return err
+	}
+	signBytes, sigBytes, err := prepareCredentials(ctx, tx, signerAcc, sigs[0].Data, d.signModeHandler)
+	if err != nil {
+		return err
 	}
 
 	sudoMsgBytes, err := json.Marshal(&types.AccountSudoMsg{
@@ -126,19 +157,96 @@ func (d BeforeTxDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		},
 	})
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
 	params, err := d.aak.GetParams(ctx)
 	if err != nil {
-		return ctx, err
+		return err
 	}
 
-	if err := sudoWithGasLimit(ctx, d.aak.ContractKeeper(), signerAcc.GetAddress(), sudoMsgBytes, params.MaxGasBefore); err != nil {
-		return ctx, err
+	return sudoWithGasLimit(ctx, d.aak.ContractKeeper(), signerAcc.GetAddress(), sudoMsgBytes, params.MaxGasBefore)
+}
+
+// DefaultMaxUnorderedTTL is the default maximum time-to-live for unordered transactions.
+// Mirrors the value used by SigVerificationDecorator in the Cosmos SDK.
+const DefaultMaxUnorderedTTL = 10 * time.Minute
+
+// DefaultUnorderedTxGasCost is the extra gas charged for registering an
+// unordered transaction nonce (store read + write).
+// Mirrors the DefaultUnorderedTxGasCost constant in the Cosmos SDK.
+const DefaultUnorderedTxGasCost = uint64(2240)
+
+// handleUnorderedTx enforces replay-protection for unordered AbstractAccount
+// transactions.
+//
+// BeforeTxDecorator replaces SigVerificationDecorator for AA txs, which means
+// the unordered-nonce checks that SigVerificationDecorator normally performs
+// are otherwise skipped. This method restores those invariants:
+//
+//  1. Unordered transactions must be enabled on the chain.
+//  2. The sig.Sequence field must be zero (not applicable for unordered mode).
+//  3. timeout_timestamp must be present, non-expired, and within the max TTL.
+//  4. The nonce (sender + timeout_timestamp) is marked as used so the same tx
+//     cannot be replayed within the timeout window.
+func (d BeforeTxDecorator) handleUnorderedTx(ctx sdk.Context, tx sdk.Tx, signerAcc sdk.AccountI, sig *txsigning.SignatureV2, simulate bool) error {
+	if !d.ak.UnorderedTransactionsEnabled() {
+		return sdkerrors.ErrNotSupported.Wrap("unordered transactions are not enabled")
 	}
 
-	return next(ctx, tx, simulate)
+	// For unordered txs the sequence field in the signature must be zero.
+	if sig.Sequence > 0 {
+		return sdkerrors.ErrInvalidRequest.Wrap("sequence is not allowed for unordered transactions")
+	}
+
+	utx := tx.(sdk.TxWithUnordered)
+	blockTime := ctx.BlockTime()
+	timeoutTimestamp := utx.GetTimeoutTimeStamp()
+
+	// Validate timeout_timestamp is set
+	if timeoutTimestamp.IsZero() || timeoutTimestamp.Unix() == 0 {
+		return errors.Wrap(
+			sdkerrors.ErrInvalidRequest,
+			"unordered transaction must have timeout_timestamp set",
+		)
+	}
+
+	// Validate timeout has not already passed
+	if timeoutTimestamp.Before(blockTime) {
+		return errors.Wrap(
+			sdkerrors.ErrInvalidRequest,
+			"unordered transaction has a timeout_timestamp that has already passed",
+		)
+	}
+
+	// Validate TTL does not exceed maximum
+	if timeoutTimestamp.After(blockTime.Add(DefaultMaxUnorderedTTL)) {
+		return errors.Wrapf(
+			sdkerrors.ErrInvalidRequest,
+			"unordered tx ttl exceeds %s",
+			DefaultMaxUnorderedTTL.String(),
+		)
+	}
+
+	// Charge gas for the nonce store operations.
+	ctx.GasMeter().ConsumeGas(DefaultUnorderedTxGasCost, "unordered tx nonce")
+
+	// Skip state-mutating nonce recording during simulation so that simulated
+	// transactions don't consume nonce slots.
+	if simulate || ctx.ExecMode() == sdk.ExecModeSimulate {
+		return nil
+	}
+
+	// Record the unordered nonce to prevent replay attacks.
+	// The nonce is the combination of (sender address, timeout_timestamp).
+	if err := d.ak.TryAddUnorderedNonce(ctx, signerAcc.GetAddress(), timeoutTimestamp); err != nil {
+		return errors.Wrapf(
+			sdkerrors.ErrInvalidRequest,
+			"failed to add unordered nonce: %s", err,
+		)
+	}
+
+	return nil
 }
 
 // ---------------------------------- AfterTx ----------------------------------

@@ -20,6 +20,7 @@ import (
 )
 
 var (
+	//nolint:staticcheck // SA1019: module.AppModule is deprecated but migration to appmodule.AppModule requires larger refactor
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
 )

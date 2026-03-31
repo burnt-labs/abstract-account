@@ -15,15 +15,16 @@ import (
 )
 
 type Keeper struct {
-	cdc       codec.BinaryCodec
-	storeKey  storetypes.StoreKey
-	ak        authkeeper.AccountKeeperI
-	ck        wasmtypes.ContractOpsKeeper
-	authority string
+	cdc               codec.BinaryCodec
+	storeKey          storetypes.StoreKey
+	transientStoreKey storetypes.StoreKey
+	ak                authkeeper.AccountKeeperI
+	ck                wasmtypes.ContractOpsKeeper
+	authority         string
 }
 
 func NewKeeper(
-	cdc codec.BinaryCodec, storeKey storetypes.StoreKey,
+	cdc codec.BinaryCodec, storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey,
 	ak authkeeper.AccountKeeperI, ck wasmtypes.ContractOpsKeeper,
 	authority string,
 ) Keeper {
@@ -35,7 +36,14 @@ func NewKeeper(
 		panic("ContractOpsKeeper cannot be nil")
 	}
 
-	return Keeper{cdc, storeKey, ak, ck, authority}
+	return Keeper{
+		cdc:               cdc,
+		storeKey:          storeKey,
+		transientStoreKey: transientStoreKey,
+		ak:                ak,
+		ck:                ck,
+		authority:         authority,
+	}
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
@@ -110,18 +118,22 @@ func (k Keeper) SetNextAccountID(ctx sdk.Context, id uint64) {
 // ------------------------------- SignerAddress -------------------------------
 
 func (k Keeper) GetSignerAddress(ctx sdk.Context) sdk.AccAddress {
-	store := ctx.KVStore(k.storeKey)
+	store := ctx.TransientStore(k.transientStoreKey)
 
 	return sdk.AccAddress(store.Get(types.KeySignerAddress))
 }
 
+// SetSignerAddress stores the AA signer in the transient store.
+// The transient store is backed by a CacheMultiStore that is discarded
+// atomically if the tx fails — including PostHandle errors — ensuring stale
+// signer addresses can never persist to the next tx in the block.
 func (k Keeper) SetSignerAddress(ctx sdk.Context, signerAddr sdk.AccAddress) {
-	store := ctx.KVStore(k.storeKey)
+	store := ctx.TransientStore(k.transientStoreKey)
 	store.Set(types.KeySignerAddress, signerAddr)
 }
 
 func (k Keeper) DeleteSignerAddress(ctx sdk.Context) {
-	store := ctx.KVStore(k.storeKey)
+	store := ctx.TransientStore(k.transientStoreKey)
 	store.Delete(types.KeySignerAddress)
 }
 

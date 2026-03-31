@@ -161,7 +161,7 @@ func NewSimApp(
 		wasmtypes.StoreKey,
 		stakingtypes.StoreKey,
 	)
-	tkeys := storetypes.NewTransientStoreKeys()
+	tkeys := storetypes.NewTransientStoreKeys(abstractaccounttypes.TransientStoreKey)
 	memKeys := storetypes.NewMemoryStoreKeys()
 
 	app := &SimApp{
@@ -191,6 +191,7 @@ func NewSimApp(
 		authcodec.NewBech32Codec(sdk.Bech32MainPrefix),
 		sdk.Bech32MainPrefix,
 		Authority,
+		authkeeper.WithUnorderedTransactions(true),
 	)
 
 	app.BankKeeper = bankkeeper.NewBaseKeeper(
@@ -227,6 +228,7 @@ func NewSimApp(
 	app.AbstractAccountKeeper = abstractaccountkeeper.NewKeeper(
 		app.cdc,
 		keys[abstractaccounttypes.StoreKey],
+		tkeys[abstractaccounttypes.TransientStoreKey],
 		app.AccountKeeper,
 		// we don't really need this strong permission (we don't need to store code
 		// or modify code access config) but wasm module doesn't seem to allow us
