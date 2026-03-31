@@ -386,6 +386,7 @@ func sudoWithGasLimit(
 	}
 
 	write()
+	ctx.GasMeter().ConsumeGas(cacheCtx.GasMeter().GasConsumed(), "sudoWithGasLimit")
 	// EmitEvents method is deprecated in favor EmitTypedEvent
 	// however, here we're not creating events ourselves, but rather just
 	// forwarding events emitted by another process (contractKeeper.Sudo)
