@@ -53,6 +53,11 @@ func NewAnteHandler(options AnteHandlerOptions) (sdk.AnteHandler, error) {
 		wasmkeeper.NewCountTXDecorator(options.TXCounterStoreKey),
 		ante.NewExtensionOptionsDecorator(options.ExtensionOptionChecker),
 		ante.NewValidateBasicDecorator(),
+		// Validate MsgMigrateContract for AbstractAccounts against AllowedCodeIDs
+		abstractaccount.NewMigrateValidationDecorator(
+			options.AbstractAccountKeeper,
+			options.AccountKeeper,
+		),
 		ante.NewTxTimeoutHeightDecorator(),
 		ante.NewValidateMemoDecorator(options.AccountKeeper),
 		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
