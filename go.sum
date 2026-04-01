@@ -781,8 +781,8 @@ github.com/btcsuite/btcd/btcutil v1.1.6 h1:zFL2+c3Lb9gEgqKNzowKUPQNb8jV7v5Oaodi/
 github.com/btcsuite/btcd/btcutil v1.1.6/go.mod h1:9dFymx8HpuLqBnsPELrImQeTQfKBQqzqGbbV3jK55aE=
 github.com/bufbuild/protocompile v0.14.1 h1:iA73zAf/fyljNjQKwYzUHD6AD4R8KMasmwa/FBatYVw=
 github.com/bufbuild/protocompile v0.14.1/go.mod h1:ppVdAIhbr2H8asPk6k4pY7t9zB1OU5DoEw9xY/FUi1c=
-github.com/burnt-labs/wasmd v0.61.9-xion.1 h1:piOen/poPAjItEETKsxwNEMho1MwAn8zr4xSGTpkDBs=
-github.com/burnt-labs/wasmd v0.61.9-xion.1/go.mod h1:RV6F9S6oOevX6nL9PnSPtAee754ygYJ3JevzWL1vH5s=
+github.com/burnt-labs/wasmd v0.61.10-xion.1 h1:pywezDk4ukgdcxV5DQ89ceNoO276XvXhJHAMfjobtbw=
+github.com/burnt-labs/wasmd v0.61.10-xion.1/go.mod h1:RV6F9S6oOevX6nL9PnSPtAee754ygYJ3JevzWL1vH5s=
 github.com/butuzov/ireturn v0.3.0 h1:hTjMqWw3y5JC3kpnC5vXmFJAWI/m31jaCYQqzkS6PL0=
 github.com/butuzov/ireturn v0.3.0/go.mod h1:A09nIiwiqzN/IoVo9ogpa0Hzi9fex1kd9PSD6edP5ZA=
 github.com/butuzov/mirror v1.2.0 h1:9YVK1qIjNspaqWutSv8gsge2e/Xpq1eqEkslEUHy5cs=
