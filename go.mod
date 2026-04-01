@@ -10,7 +10,7 @@ replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 
 	// wasmd fork used by xion
-	github.com/CosmWasm/wasmd => github.com/burnt-labs/wasmd v0.61.9-xion.1
+	github.com/CosmWasm/wasmd => github.com/burnt-labs/wasmd v0.61.10-xion.1
 
 	// dgrijalva/jwt-go is deprecated and doesn't receive security updates.
 	// See: https://github.com/cosmos/cosmos-sdk/issues/13134
@@ -34,7 +34,7 @@ require (
 	cosmossdk.io/math v1.5.3
 	cosmossdk.io/store v1.1.2
 	cosmossdk.io/x/tx v0.14.0
-	github.com/CosmWasm/wasmd v0.61.8
+	github.com/CosmWasm/wasmd v0.61.10-xion.1
 	github.com/cometbft/cometbft v0.38.21
 	github.com/cosmos/cosmos-db v1.1.3
 	github.com/cosmos/cosmos-proto v1.0.0-beta.5
