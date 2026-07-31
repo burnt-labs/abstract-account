@@ -2,7 +2,6 @@ package abstractaccount
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -29,6 +28,8 @@ func NewMigrateValidationDecorator(aak keeper.Keeper, ak authante.AccountKeeper)
 }
 
 func (d MigrateValidationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	var params *types.Params
+
 	for _, msg := range tx.GetMsgs() {
 		migrateMsg, ok := msg.(*wasmtypes.MsgMigrateContract)
 		if !ok {
@@ -52,25 +53,18 @@ func (d MigrateValidationDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simul
 		}
 
 		// Validate new code ID against AllowedCodeIDs
-		params, err := d.aak.GetParams(ctx)
-		if err != nil {
-			return ctx, err
+		if params == nil {
+			params, err = d.aak.GetParams(ctx)
+			if err != nil {
+				return ctx, err
+			}
 		}
 
-		if !params.AllowAllCodeIDs {
-			allowed := false
-			for _, codeID := range params.AllowedCodeIDs {
-				if codeID == migrateMsg.CodeID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				return ctx, sdkerrors.ErrUnauthorized.Wrapf(
-					"cannot migrate AbstractAccount to code ID %d: not in AllowedCodeIDs",
-					migrateMsg.CodeID,
-				)
-			}
+		if !params.IsAllowed(migrateMsg.CodeID) {
+			return ctx, types.ErrNotAllowedCodeID.Wrapf(
+				"cannot migrate AbstractAccount to code ID %d",
+				migrateMsg.CodeID,
+			)
 		}
 	}
 

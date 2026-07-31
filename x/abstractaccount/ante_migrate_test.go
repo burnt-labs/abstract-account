@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
 	"github.com/burnt-labs/abstract-account/x/abstractaccount"
@@ -18,12 +17,13 @@ func TestMigrateValidationDecorator(t *testing.T) {
 	ctx := app.NewContext(false)
 
 	// Create an AbstractAccount with unique account number
-	absAccAddr := sdk.AccAddress([]byte("abstract-account-addr"))
+	absAccAddr := simapptesting.MakeRandomAddress()
 	absAcc := types.NewAbstractAccount(absAccAddr.String(), 100, 0)
 	app.AccountKeeper.SetAccount(ctx, absAcc)
 
 	// Create a regular account (non-AA) - use NewAccountWithAddress to let it assign account num
-	regularAccAddr := sdk.AccAddress([]byte("regular-account-addr1"))
+	regularAccAddr := simapptesting.MakeRandomAddress()
+	unknownAccAddr := simapptesting.MakeRandomAddress()
 	regularAcc := app.AccountKeeper.NewAccountWithAddress(ctx, regularAccAddr)
 	app.AccountKeeper.SetAccount(ctx, regularAcc)
 
@@ -62,7 +62,7 @@ func TestMigrateValidationDecorator(t *testing.T) {
 			contractAddr:   absAccAddr.String(),
 			codeID:         999,
 			expOk:          false,
-			expErrContains: "not in AllowedCodeIDs",
+			expErrContains: types.ErrNotAllowedCodeID.Error(),
 		},
 		{
 			desc:         "any code ID for regular account (not an AA)",
@@ -72,7 +72,7 @@ func TestMigrateValidationDecorator(t *testing.T) {
 		},
 		{
 			desc:         "unknown account address",
-			contractAddr: sdk.AccAddress([]byte("unknown-addr-here12")).String(),
+			contractAddr: unknownAccAddr.String(),
 			codeID:       999,
 			expOk:        true,
 		},
@@ -108,7 +108,7 @@ func TestMigrateValidationDecorator_AllowAllCodeIDs(t *testing.T) {
 	ctx := app.NewContext(false)
 
 	// Create an AbstractAccount with unique account number
-	absAccAddr := sdk.AccAddress([]byte("abstract-account-addr"))
+	absAccAddr := simapptesting.MakeRandomAddress()
 	absAcc := types.NewAbstractAccount(absAccAddr.String(), 200, 0)
 	app.AccountKeeper.SetAccount(ctx, absAcc)
 
@@ -155,8 +155,8 @@ func TestMigrateValidationDecorator_NonMigrateMsg(t *testing.T) {
 
 	// A non-migrate message should pass through
 	msg := &wasmtypes.MsgExecuteContract{
-		Sender:   sdk.AccAddress([]byte("sender-addr-here123")).String(),
-		Contract: sdk.AccAddress([]byte("contract-addr-here1")).String(),
+		Sender:   simapptesting.MakeRandomAddress().String(),
+		Contract: simapptesting.MakeRandomAddress().String(),
 		Msg:      []byte("{}"),
 	}
 
