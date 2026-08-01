@@ -12,6 +12,17 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) []abci.Vali
 	}
 
 	k.SetNextAccountID(ctx, gs.NextAccountId)
+	for _, entry := range gs.AccountAddresses {
+		sender, err := sdk.AccAddressFromBech32(entry.Sender)
+		if err != nil {
+			panic(err)
+		}
+		address, err := sdk.AccAddressFromBech32(entry.Address)
+		if err != nil {
+			panic(err)
+		}
+		k.SetAccountAddress(ctx, sender, entry.Salt, address)
+	}
 
 	return []abci.ValidatorUpdate{}
 }
@@ -22,8 +33,21 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	var accountAddresses []*types.AccountAddress
+	if err := k.IterateAccountAddresses(ctx, func(sender sdk.AccAddress, salt []byte, address sdk.AccAddress) bool {
+		accountAddresses = append(accountAddresses, &types.AccountAddress{
+			Sender:  sender.String(),
+			Salt:    salt,
+			Address: address.String(),
+		})
+		return false
+	}); err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params:        params,
-		NextAccountId: k.GetNextAccountID(ctx),
+		Params:           params,
+		NextAccountId:    k.GetNextAccountID(ctx),
+		AccountAddresses: accountAddresses,
 	}
 }

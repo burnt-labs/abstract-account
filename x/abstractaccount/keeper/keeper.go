@@ -1,6 +1,10 @@
 package keeper
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+
 	log "cosmossdk.io/log"
 
 	storetypes "cosmossdk.io/store/types"
@@ -9,6 +13,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 
+	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
@@ -20,12 +25,13 @@ type Keeper struct {
 	transientStoreKey storetypes.StoreKey
 	ak                authkeeper.AccountKeeperI
 	ck                wasmtypes.ContractOpsKeeper
+	vk                wasmtypes.ViewKeeper
 	authority         string
 }
 
 func NewKeeper(
 	cdc codec.BinaryCodec, storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey,
-	ak authkeeper.AccountKeeperI, ck wasmtypes.ContractOpsKeeper,
+	ak authkeeper.AccountKeeperI, ck wasmtypes.ContractOpsKeeper, vk wasmtypes.ViewKeeper,
 	authority string,
 ) Keeper {
 	if ak == nil {
@@ -36,12 +42,17 @@ func NewKeeper(
 		panic("ContractOpsKeeper cannot be nil")
 	}
 
+	if vk == nil {
+		panic("ViewKeeper cannot be nil")
+	}
+
 	return Keeper{
 		cdc:               cdc,
 		storeKey:          storeKey,
 		transientStoreKey: transientStoreKey,
 		ak:                ak,
 		ck:                ck,
+		vk:                vk,
 		authority:         authority,
 	}
 }
@@ -92,6 +103,89 @@ func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
 	store.Set(types.KeyParams, bz)
 
 	return nil
+}
+
+// ----------------------------- Account addresses ----------------------------
+
+func accountAddressKey(sender sdk.AccAddress, salt []byte) []byte {
+	key := make([]byte, 1+8+len(sender)+len(salt))
+	key[0] = types.KeyAccountAddressPrefix[0]
+	binary.BigEndian.PutUint64(key[1:9], uint64(len(sender)))
+	copy(key[9:], sender)
+	copy(key[9+len(sender):], salt)
+	return key
+}
+
+func parseAccountAddressKey(key []byte) (sdk.AccAddress, []byte, error) {
+	if len(key) < 9 || key[0] != types.KeyAccountAddressPrefix[0] {
+		return nil, nil, errors.New("invalid account address registry key")
+	}
+
+	senderLen := binary.BigEndian.Uint64(key[1:9])
+	if senderLen == 0 || senderLen > uint64(len(key)-9) {
+		return nil, nil, errors.New("invalid account address registry sender length")
+	}
+
+	senderEnd := 9 + int(senderLen)
+	return sdk.AccAddress(bytes.Clone(key[9:senderEnd])), bytes.Clone(key[senderEnd:]), nil
+}
+
+func (k Keeper) GetAccountAddress(ctx sdk.Context, sender sdk.AccAddress, salt []byte) (sdk.AccAddress, bool) {
+	bz := ctx.KVStore(k.storeKey).Get(accountAddressKey(sender, salt))
+	if bz == nil {
+		return nil, false
+	}
+	return sdk.AccAddress(bz), true
+}
+
+func (k Keeper) SetAccountAddress(ctx sdk.Context, sender sdk.AccAddress, salt []byte, address sdk.AccAddress) {
+	ctx.KVStore(k.storeKey).Set(accountAddressKey(sender, salt), address)
+}
+
+func (k Keeper) IterateAccountAddresses(
+	ctx sdk.Context,
+	cb func(sender sdk.AccAddress, salt []byte, address sdk.AccAddress) bool,
+) error {
+	store := ctx.KVStore(k.storeKey)
+	iterator := store.Iterator(types.KeyAccountAddressPrefix, storetypes.PrefixEndBytes(types.KeyAccountAddressPrefix))
+	defer iterator.Close()
+
+	for ; iterator.Valid(); iterator.Next() {
+		sender, salt, err := parseAccountAddressKey(iterator.Key())
+		if err != nil {
+			return err
+		}
+		if cb(sender, salt, sdk.AccAddress(bytes.Clone(iterator.Value()))) {
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func (k Keeper) PredictAccountAddress(ctx sdk.Context, sender sdk.AccAddress, salt []byte) (sdk.AccAddress, error) {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !params.RegistrationEnabled() {
+		return nil, types.ErrRegistrationDisabled
+	}
+	if err := wasmtypes.ValidateSalt(salt); err != nil {
+		return nil, err
+	}
+
+	codeInfo := k.vk.GetCodeInfo(ctx, params.BootstrapCodeID)
+	if codeInfo == nil {
+		return nil, types.ErrCodeIDNotFound.Wrapf("bootstrap code ID %d", params.BootstrapCodeID)
+	}
+
+	return wasmkeeper.BuildContractAddressPredictable(codeInfo.CodeHash, sender, salt, nil), nil
+}
+
+func (k Keeper) IsAbstractAccount(ctx sdk.Context, address sdk.AccAddress) bool {
+	_, ok := k.ak.GetAccount(ctx, address).(*types.AbstractAccount)
+	return ok
 }
 
 // ------------------------------- NextAccountId -------------------------------

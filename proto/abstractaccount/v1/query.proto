@@ -14,6 +14,13 @@ service Query {
     option (cosmos.query.v1.module_query_safe) = true;
     option (google.api.http).get               = "/abstractaccount/v1/params";
   }
+
+  // AccountAddress returns the authoritative registered address or predicts
+  // the canonical address using the module-managed bootstrap code.
+  rpc AccountAddress(QueryAccountAddressRequest) returns (QueryAccountAddressResponse) {
+    option (cosmos.query.v1.module_query_safe) = true;
+    option (google.api.http).get = "/abstractaccount/v1/account_address/{sender}";
+  }
 }
 
 // ---------------------------------- Params -----------------------------------
@@ -24,4 +31,18 @@ message QueryParamsRequest {}
 // QueryParamsResponse is the response type for the Query/Params RPC method.
 message QueryParamsResponse {
   Params params = 1;
+}
+
+// QueryAccountAddressRequest identifies an account namespace without exposing
+// a Wasm code ID or checksum to callers.
+message QueryAccountAddressRequest {
+  string sender = 1;
+  bytes salt = 2;
+}
+
+// QueryAccountAddressResponse contains the stable address and whether an
+// AbstractAccount is already registered for the namespace.
+message QueryAccountAddressResponse {
+  string address = 1;
+  bool registered = 2;
 }

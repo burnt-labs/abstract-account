@@ -64,7 +64,7 @@ func TestExportGenesisPanic(t *testing.T) {
 	transientStoreKey := storetypes.NewTransientStoreKey("test-abstractaccount-panic_transient")
 	contractKeeper := wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper)
 
-	freshKeeper := abstractaccountkeeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, contractKeeper, "authority")
+	freshKeeper := abstractaccountkeeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, contractKeeper, &app.WasmKeeper, "authority")
 
 	// This should panic because no params are set
 	require.Panics(t, func() {
@@ -248,6 +248,11 @@ func TestGenesisRoundTrip(t *testing.T) {
 	originalParams := &types.Params{MaxGasBefore: 111111, MaxGasAfter: 222222}
 	originalNextAccountID := uint64(333333)
 	originalGs := types.NewGenesisState(originalNextAccountID, originalParams)
+	originalGs.AccountAddresses = []*types.AccountAddress{{
+		Sender:  simapptesting.MakeRandomAddress().String(),
+		Salt:    []byte("exported-salt"),
+		Address: simapptesting.MakeRandomAddress().String(),
+	}}
 
 	// Initialize first app
 	result := app1.AbstractAccountKeeper.InitGenesis(ctx1, originalGs)

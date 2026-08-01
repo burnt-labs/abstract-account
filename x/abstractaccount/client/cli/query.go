@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
@@ -18,9 +20,45 @@ func GetQueryCmd() *cobra.Command {
 
 	cmd.AddCommand(
 		paramsCmd(),
+		accountAddressCmd(),
 	)
 
 	return cmd
+}
+
+func accountAddressCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "account-address [sender] --salt [string]",
+		Short: "Query the registered or predicted abstract account address",
+		Args:  cobra.ExactArgs(1),
+		RunE:  queryAccountAddress,
+	}
+
+	cmd.Flags().String(flagSalt, "", "Salt value used in determining account address")
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+func queryAccountAddress(cmd *cobra.Command, args []string) error {
+	clientCtx, err := client.GetClientTxContext(cmd)
+	if err != nil {
+		return err
+	}
+	salt, err := cmd.Flags().GetString(flagSalt)
+	if err != nil {
+		return fmt.Errorf("salt: %s", err)
+	}
+
+	res, err := types.NewQueryClient(clientCtx).AccountAddress(cmd.Context(), &types.QueryAccountAddressRequest{
+		Sender: args[0],
+		Salt:   []byte(salt),
+	})
+	if err != nil {
+		return err
+	}
+
+	return clientCtx.PrintProto(res)
 }
 
 func paramsCmd() *cobra.Command {

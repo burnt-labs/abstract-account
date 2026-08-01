@@ -6,12 +6,19 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	v2 "github.com/burnt-labs/abstract-account/x/abstractaccount/migrations/v2"
+	v3 "github.com/burnt-labs/abstract-account/x/abstractaccount/migrations/v3"
 )
 
 // Migrator is a struct for handling in-place store migrations.
 type Migrator struct {
 	key storetypes.StoreKey
 	cdc codec.BinaryCodec
+}
+
+// Migrate2to3 adds chain-owned registration code IDs. They remain zero until
+// the chain upgrade configures its bootstrap and implementation code IDs.
+func (m Migrator) Migrate2to3(ctx sdk.Context) error {
+	return v3.MigrateStore(ctx, m.key, m.cdc)
 }
 
 // NewMigrator returns a new Migrator.

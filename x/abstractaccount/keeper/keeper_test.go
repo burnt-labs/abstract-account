@@ -26,13 +26,19 @@ func TestNewKeeper(t *testing.T) {
 
 	t.Run("panic when AccountKeeper is nil", func(t *testing.T) {
 		require.Panics(t, func() {
-			keeper.NewKeeper(cdc, storeKey, transientStoreKey, nil, contractKeeper, "authority")
+			keeper.NewKeeper(cdc, storeKey, transientStoreKey, nil, contractKeeper, &app.WasmKeeper, "authority")
 		})
 	})
 
 	t.Run("panic when ContractKeeper is nil", func(t *testing.T) {
 		require.Panics(t, func() {
-			keeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, nil, "authority")
+			keeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, nil, &app.WasmKeeper, "authority")
+		})
+	})
+
+	t.Run("panic when ViewKeeper is nil", func(t *testing.T) {
+		require.Panics(t, func() {
+			keeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, contractKeeper, nil, "authority")
 		})
 	})
 }

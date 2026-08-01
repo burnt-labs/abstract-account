@@ -10,6 +10,7 @@ import (
 var (
 	_ sdk.Msg = &MsgUpdateParams{}
 	_ sdk.Msg = &MsgRegisterAccount{}
+	_ sdk.Msg = &MsgMigrateAccount{}
 )
 
 // ------------------------------- UpdateParams --------------------------------
@@ -37,10 +38,6 @@ func (m *MsgRegisterAccount) ValidateBasic() error {
 		return sdkerrors.ErrInvalidRequest.Wrap("invalid sender address")
 	}
 
-	if m.CodeID == 0 {
-		return sdkerrors.ErrInvalidRequest.Wrap("code id cannot be zero")
-	}
-
 	if err := m.Msg.ValidateBasic(); err != nil {
 		return sdkerrors.ErrInvalidRequest.Wrapf("invalid init msg: %s", err.Error())
 	}
@@ -55,5 +52,20 @@ func (m *MsgRegisterAccount) ValidateBasic() error {
 func (m *MsgRegisterAccount) GetSigners() []sdk.AccAddress {
 	senderAddr, _ := sdk.AccAddressFromBech32(m.Sender)
 
+	return []sdk.AccAddress{senderAddr}
+}
+
+// ------------------------------- MigrateAccount -----------------------------
+
+func (m *MsgMigrateAccount) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Sender); err != nil {
+		return sdkerrors.ErrInvalidRequest.Wrap("invalid sender address")
+	}
+
+	return nil
+}
+
+func (m *MsgMigrateAccount) GetSigners() []sdk.AccAddress {
+	senderAddr, _ := sdk.AccAddressFromBech32(m.Sender)
 	return []sdk.AccAddress{senderAddr}
 }

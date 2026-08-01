@@ -2,6 +2,30 @@
 
 Module that implements the `AbstractAccount` type and ante/post handler logics.
 
+## Chain-owned registration
+
+The module owns the stable account-address namespace and current contract
+implementation:
+
+- `bootstrap_code_id` is used for every `Instantiate2` address and becomes
+  immutable once configured.
+- `implementation_code_id` can be updated by governance. New accounts are
+  atomically migrated to it before registration completes.
+- `MsgRegisterAccount` accepts only the sender, instantiate message, funds, and
+  salt. Callers never provide a Wasm code ID.
+- `AccountAddress(sender, salt)` returns the registered address or predicts the
+  canonical address from the bootstrap code checksum.
+- `MsgMigrateAccount` migrates an existing account to the current
+  implementation without exposing a code ID to the caller.
+
+The `(sender, salt) -> address` registry makes duplicate prevention a chain
+invariant. Indexers may still provide history and analytics, but are not part
+of registration correctness.
+
+The v3 module migration leaves both registration code IDs at zero. A chain
+upgrade must configure them before registration is enabled because the reusable
+module cannot infer chain-specific code IDs.
+
 ## License
 
 (c) larry0x, 2023 - [All rights reserved](../../LICENSE).
