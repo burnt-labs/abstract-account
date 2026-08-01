@@ -41,7 +41,7 @@ func accountAddressCmd() *cobra.Command {
 }
 
 func queryAccountAddress(cmd *cobra.Command, args []string) error {
-	clientCtx, err := client.GetClientTxContext(cmd)
+	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func paramsCmd() *cobra.Command {
 }
 
 func queryParams(cmd *cobra.Command, _ []string) error {
-	clientCtx, err := client.GetClientTxContext(cmd)
+	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,9 @@ func DefaultGenesisState() *GenesisState {
 }
 
 func (gs *GenesisState) Validate() error {
+	if gs.Params == nil {
+		return errors.New("params cannot be nil")
+	}
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}

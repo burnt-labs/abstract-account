@@ -617,6 +617,10 @@ func (s *AbstractAccountTypesTestSuite) TestGenesisState() {
 		}
 		err = invalidGenesis.Validate()
 		s.Require().Error(err)
+
+		// Missing params must return an error rather than panic during chain init.
+		err = (&types.GenesisState{}).Validate()
+		s.Require().EqualError(err, "params cannot be nil")
 	})
 }
 

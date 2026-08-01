@@ -263,7 +263,7 @@ func TestAppModuleBasic(t *testing.T) {
 
 	// Test RegisterGRPCGatewayRoutes
 	ctx := client.Context{}
-	mux := &runtime.ServeMux{}
+	mux := runtime.NewServeMux()
 	moduleBasic.RegisterGRPCGatewayRoutes(ctx, mux)
 
 	// Test GetTxCmd

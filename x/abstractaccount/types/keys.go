@@ -27,6 +27,6 @@ var (
 	KeySignerAddress = []byte{0x02}
 
 	// KeyAccountAddressPrefix stores the authoritative mapping from a
-	// length-prefixed sender and salt to an AbstractAccount address.
+	// length-prefixed sender followed by the salt to an AbstractAccount address.
 	KeyAccountAddressPrefix = []byte{0x03}
 )
