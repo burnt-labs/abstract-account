@@ -11,6 +11,9 @@ implementation:
   immutable once configured.
 - `implementation_code_id` can be updated by governance. New accounts are
   atomically migrated to it before registration completes.
+- `registration_enabled` lets governance pause only new registrations without
+  changing the address namespace or blocking queries and existing-account
+  migrations.
 - `MsgRegisterAccount` accepts only the sender, instantiate message, funds, and
   salt. Callers never provide a Wasm code ID.
 - `AccountAddress(sender, salt)` returns the registered address or predicts the
@@ -22,9 +25,15 @@ The `(sender, salt) -> address` registry makes duplicate prevention a chain
 invariant. Indexers may still provide history and analytics, but are not part
 of registration correctness.
 
-The v3 module migration leaves both registration code IDs at zero. A chain
-upgrade must configure them before registration is enabled because the reusable
-module cannot infer chain-specific code IDs.
+The v3 module migration leaves both registration code IDs at zero and
+`registration_enabled` false. A chain upgrade must configure the IDs and then
+explicitly enable registration because the reusable module cannot infer
+chain-specific code IDs.
+
+AA-API must query `AccountAddress(sender, salt)` before constructing
+address-bound authenticator credentials. In particular, it must not derive the
+address from `implementation_code_id`: bootstrap and implementation code IDs may
+intentionally differ.
 
 ## License
 

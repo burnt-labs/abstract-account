@@ -25,6 +25,6 @@ func TestMigrateStoreDisablesRegistrationUntilChainConfiguresCodeIDs(t *testing.
 	require.NoError(t, err)
 	require.Zero(t, migrated.BootstrapCodeID)
 	require.Zero(t, migrated.ImplementationCodeID)
-	require.False(t, migrated.RegistrationEnabled())
+	require.False(t, migrated.RegistrationEnabled)
 	require.Equal(t, uint64(types.DefaultMaxGas), migrated.MaxGasBefore)
 }

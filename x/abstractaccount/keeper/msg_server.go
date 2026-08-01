@@ -54,7 +54,7 @@ func (ms msgServer) validateRegistrationCodeIDs(ctx sdk.Context, params *types.P
 	if err := params.Validate(); err != nil {
 		return err
 	}
-	if !params.RegistrationEnabled() {
+	if !params.RegistrationConfigured() {
 		return nil
 	}
 
@@ -133,7 +133,7 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		return nil, err
 	}
 
-	if !params.RegistrationEnabled() {
+	if !params.RegistrationEnabled {
 		return nil, types.ErrRegistrationDisabled
 	}
 
@@ -205,8 +205,8 @@ func (ms msgServer) MigrateAccount(goCtx context.Context, req *types.MsgMigrateA
 	if err != nil {
 		return nil, err
 	}
-	if !params.RegistrationEnabled() {
-		return nil, types.ErrRegistrationDisabled
+	if !params.RegistrationConfigured() {
+		return nil, types.ErrRegistrationNotConfigured
 	}
 	if ms.k.vk.GetCodeInfo(ctx, params.ImplementationCodeID) == nil {
 		return nil, types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", params.ImplementationCodeID)

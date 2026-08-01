@@ -38,4 +38,10 @@ message Params {
   // ImplementationCodeID is the governance-controlled Wasm code ID new
   // accounts are migrated to immediately after deterministic instantiation.
   uint64 implementation_code_id = 6 [(gogoproto.customname) = "ImplementationCodeID"];
+
+  // RegistrationEnabled controls whether new abstract accounts may be
+  // registered. Governance can pause registration without changing the
+  // immutable bootstrap address namespace or blocking existing-account
+  // migrations and address queries.
+  bool registration_enabled = 7;
 }

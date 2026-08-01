@@ -188,6 +188,7 @@ func storeCodeAndRegisterAccount(
 	}
 	params.BootstrapCodeID = codeID
 	params.ImplementationCodeID = codeID
+	params.RegistrationEnabled = true
 	if err := k.SetParams(ctx, params); err != nil {
 		return nil, err
 	}

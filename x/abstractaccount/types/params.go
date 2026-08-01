@@ -25,6 +25,7 @@ func NewParamsWithRegistrationCodeIDs(
 
 	params.BootstrapCodeID = bootstrapCodeID
 	params.ImplementationCodeID = implementationCodeID
+	params.RegistrationEnabled = true
 
 	return params, params.Validate()
 }
@@ -36,8 +37,8 @@ func DefaultParams() *Params {
 }
 
 func (p *Params) Validate() error {
-	if (p.BootstrapCodeID == 0) != (p.ImplementationCodeID == 0) {
-		return ErrMismatchedCodeIDs
+	if err := p.validateRegistration(); err != nil {
+		return err
 	}
 
 	if p.MaxGasBefore <= 0 {
@@ -63,6 +64,16 @@ func (p *Params) Validate() error {
 		prevCodeID = codeID
 	}
 
+	return nil
+}
+
+func (p *Params) validateRegistration() error {
+	if (p.BootstrapCodeID == 0) != (p.ImplementationCodeID == 0) {
+		return ErrMismatchedCodeIDs
+	}
+	if p.RegistrationEnabled && !p.RegistrationConfigured() {
+		return ErrRegistrationNotConfigured
+	}
 	if p.ImplementationCodeID != 0 && !p.IsAllowed(p.ImplementationCodeID) {
 		return ErrNotAllowedCodeID.Wrap("implementation code ID")
 	}
@@ -70,7 +81,7 @@ func (p *Params) Validate() error {
 	return nil
 }
 
-func (p *Params) RegistrationEnabled() bool {
+func (p *Params) RegistrationConfigured() bool {
 	return p.BootstrapCodeID != 0 && p.ImplementationCodeID != 0
 }
 

@@ -168,8 +168,8 @@ func (k Keeper) PredictAccountAddress(ctx sdk.Context, sender sdk.AccAddress, sa
 	if err != nil {
 		return nil, err
 	}
-	if !params.RegistrationEnabled() {
-		return nil, types.ErrRegistrationDisabled
+	if !params.RegistrationConfigured() {
+		return nil, types.ErrRegistrationNotConfigured
 	}
 	if err := wasmtypes.ValidateSalt(salt); err != nil {
 		return nil, err

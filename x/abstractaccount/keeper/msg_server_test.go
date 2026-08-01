@@ -125,6 +125,76 @@ func TestUpdateParamsRegistrationCodeIDs(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrCodeIDNotFound)
 }
 
+func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.T) {
+	app := simapptesting.MakeMockApp([]banktypes.Balance{{
+		Address: user.String(),
+		Coins:   userInitialBalance,
+	}})
+	ctx := app.NewContext(false).WithBlockTime(time.Now())
+	k := app.AbstractAccountKeeper
+
+	codeID, err := storeCode(ctx, k.ContractKeeper())
+	require.NoError(t, err)
+	params, err := types.NewParamsWithRegistrationCodeIDs(
+		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, codeID, codeID,
+	)
+	require.NoError(t, err)
+	require.NoError(t, k.SetParams(ctx, params))
+
+	msgServer := keeper.NewMsgServerImpl(k)
+	registered, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+		Sender: user.String(),
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   []byte("registered-before-pause"),
+	})
+	require.NoError(t, err)
+
+	paused := *params
+	paused.RegistrationEnabled = false
+	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{
+		Sender: simapp.Authority,
+		Params: &paused,
+	})
+	require.NoError(t, err)
+
+	salt := []byte("predict-during-pause")
+	predicted, err := k.PredictAccountAddress(ctx, user, salt)
+	require.NoError(t, err)
+	queried, err := keeper.NewQueryServerImpl(k).AccountAddress(ctx, &types.QueryAccountAddressRequest{
+		Sender: user.String(),
+		Salt:   salt,
+	})
+	require.NoError(t, err)
+	require.Equal(t, predicted.String(), queried.Address)
+	require.False(t, queried.Registered)
+
+	_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+		Sender: user.String(),
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   salt,
+	})
+	require.ErrorIs(t, err, types.ErrRegistrationDisabled)
+
+	migrated, err := msgServer.MigrateAccount(ctx, &types.MsgMigrateAccount{Sender: registered.Address})
+	require.NoError(t, err)
+	require.False(t, migrated.Migrated)
+
+	resumed := paused
+	resumed.RegistrationEnabled = true
+	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{
+		Sender: simapp.Authority,
+		Params: &resumed,
+	})
+	require.NoError(t, err)
+	res, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+		Sender: user.String(),
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   salt,
+	})
+	require.NoError(t, err)
+	require.Equal(t, predicted.String(), res.Address)
+}
+
 // ------------------------------ RegisterAccount ------------------------------
 
 func TestRegisterAccount(t *testing.T) {
@@ -413,6 +483,14 @@ func registerAccount(ctx sdk.Context, msgServer types.MsgServer, _ uint64) (sdk.
 	}
 
 	return sdk.AccAddressFromBech32(res.Address)
+}
+
+func mustMarshalAccountInitMsg(t *testing.T) []byte {
+	t.Helper()
+	msgBytes, err := json.Marshal(&AccountInitMsg{PubKey: simapptesting.MakeRandomPubKey().Bytes()})
+	require.NoError(t, err)
+
+	return msgBytes
 }
 
 // ----------------------------- Additional Tests for 100% Coverage -----------------------------

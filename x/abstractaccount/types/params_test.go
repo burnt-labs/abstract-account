@@ -101,6 +101,16 @@ func TestValidateParams(t *testing.T) {
 			expErr: true,
 		},
 		{
+			desc: "registration enabled before code IDs are configured",
+			params: &types.Params{
+				AllowAllCodeIDs:     true,
+				MaxGasBefore:        types.DefaultMaxGas,
+				MaxGasAfter:         types.DefaultMaxGas,
+				RegistrationEnabled: true,
+			},
+			expErr: true,
+		},
+		{
 			desc: "implementation code ID must be allowed",
 			params: &types.Params{
 				AllowedCodeIDs:       []uint64{1},
@@ -138,7 +148,8 @@ func TestRegistrationParamsAndMigrateMessage(t *testing.T) {
 		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, 1, 2,
 	)
 	require.NoError(t, err)
-	require.True(t, params.RegistrationEnabled())
+	require.True(t, params.RegistrationEnabled)
+	require.True(t, params.RegistrationConfigured())
 
 	_, err = types.NewParamsWithRegistrationCodeIDs(
 		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 1, 2,

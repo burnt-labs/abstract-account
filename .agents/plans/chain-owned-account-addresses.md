@@ -10,6 +10,9 @@ code ID or checksum.
 ## Module contract
 
 - Add `bootstrap_code_id` and `implementation_code_id` parameters.
+- Add an independent `registration_enabled` parameter so governance can pause
+  new registrations without changing the stable namespace or blocking queries
+  and existing-account migrations.
 - Permit `bootstrap_code_id` to transition from zero to a configured value
   once, then make it immutable. Governance may update
   `implementation_code_id`.
@@ -46,8 +49,9 @@ but are no longer in the account-creation correctness path.
 ## Upgrade boundary
 
 The v3 store migration adds the new parameters as zero (registration disabled)
-because a reusable module cannot infer chain-specific Wasm code IDs. The XION
-chain upgrade must set both IDs before reopening registration. The audited
+and leaves `registration_enabled` false because a reusable module cannot infer
+chain-specific Wasm code IDs. The XION chain upgrade must set both IDs before
+explicitly enabling registration. The audited
 mainnet accounts must all resolve at the selected bootstrap checksum. Any
 noncanonical historical account would need an explicit chain-specific backfill;
 testnet-only historical duplicates do not constrain the mainnet rollout.
@@ -60,3 +64,11 @@ testnet-only historical duplicates do not constrain the mainnet rollout.
 - Atomic instantiate/migrate/admin/account registration tests.
 - v2-to-v3 migration and genesis round-trip tests.
 - CLI/protobuf compatibility tests and full repository test/coverage gates.
+
+## Security review
+
+- Migration is authorized by the registered abstract account signer, and callers cannot select a target code ID.
+- The module performs one synchronous migration and does not iterate historical contracts during upgrade.
+- Authenticator verification remains address-bound downstream; AA-API must obtain that address from `AccountAddress` before credential construction.
+- Signer state remains transient; only the canonical `(sender, salt) -> address` registry is persistent.
+- Code selection is removed from callers and uniqueness is enforced atomically on chain.
