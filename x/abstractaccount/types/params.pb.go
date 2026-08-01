@@ -25,14 +25,16 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Params defines the parameters for the abstractaccount module.
 type Params struct {
-	// AllowAllCodeIDs determines whether an AbstractAccount can be migrated with
-	// a raw wasm MsgMigrateContract to any Wasm code ID:
+	// AllowAllCodeIDs determines whether the ante handler permits a top-level
+	// raw wasm MsgMigrateContract to migrate an AbstractAccount to any Wasm code
+	// ID:
 	// - if set to true, any code ID can be used;
 	// - if set to false, only code IDs whitelisted in the AllowedCodeIDs list can
 	// be used.
 	AllowAllCodeIDs bool `protobuf:"varint,1,opt,name=allow_all_code_ids,json=allowAllCodeIds,proto3" json:"allow_all_code_ids,omitempty"`
-	// AllowedCodeIDs is the whitelist used for raw wasm migrations. Applications
-	// should use MsgMigrateAccount instead, which selects ImplementationCodeID.
+	// AllowedCodeIDs is the ante-handler whitelist for top-level raw Wasm
+	// migrations. Applications should use MsgMigrateAccount instead, which
+	// selects ImplementationCodeID. This is not a wasmd-level migration policy.
 	AllowedCodeIDs []uint64 `protobuf:"varint,2,rep,packed,name=allowed_code_ids,json=allowedCodeIds,proto3" json:"allowed_code_ids,omitempty"`
 	// MaxGasBefore is the maximum amount of gas that can be consumed by the
 	// contract call in the before_tx decorator.

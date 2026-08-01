@@ -7,15 +7,17 @@ option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/ty
 
 // Params defines the parameters for the abstractaccount module.
 message Params {
-  // AllowAllCodeIDs determines whether an AbstractAccount can be migrated with
-  // a raw wasm MsgMigrateContract to any Wasm code ID:
+  // AllowAllCodeIDs determines whether the ante handler permits a top-level
+  // raw wasm MsgMigrateContract to migrate an AbstractAccount to any Wasm code
+  // ID:
   // - if set to true, any code ID can be used;
   // - if set to false, only code IDs whitelisted in the AllowedCodeIDs list can
   // be used.
   bool allow_all_code_ids = 1 [(gogoproto.customname) = "AllowAllCodeIDs"];
 
-  // AllowedCodeIDs is the whitelist used for raw wasm migrations. Applications
-  // should use MsgMigrateAccount instead, which selects ImplementationCodeID.
+  // AllowedCodeIDs is the ante-handler whitelist for top-level raw Wasm
+  // migrations. Applications should use MsgMigrateAccount instead, which
+  // selects ImplementationCodeID. This is not a wasmd-level migration policy.
   repeated uint64 allowed_code_ids = 2 [(gogoproto.customname) = "AllowedCodeIDs"];
 
   // MaxGasBefore is the maximum amount of gas that can be consumed by the

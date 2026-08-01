@@ -7,8 +7,9 @@ Module that implements the `AbstractAccount` type and ante/post handler logics.
 The module owns the stable account-address namespace and current contract
 implementation:
 
-- `bootstrap_code_id` is used for every `Instantiate2` address and becomes
-  immutable once configured.
+- `bootstrap_code_id` is used for every `Instantiate2` address. Runtime
+  governance may configure it once; after that, `MsgUpdateParams` rejects every
+  attempted change so the address namespace is permanent.
 - `implementation_code_id` can be updated by governance. New accounts are
   atomically migrated to it before registration completes.
 - `registration_enabled` lets governance pause only new registrations without
@@ -30,10 +31,22 @@ The v3 module migration leaves both registration code IDs at zero and
 explicitly enable registration because the reusable module cannot infer
 chain-specific code IDs.
 
+Genesis and chain upgrade handlers call the keeper's trusted `SetParams` path,
+which can initialize bootstrap configuration but does not enforce runtime
+immutability or Wasm code existence. An upgrade must preserve an already
+configured bootstrap ID. Changing it would create a different address namespace
+and is not a supported operation.
+
 AA-API must query `AccountAddress(sender, salt)` before constructing
 address-bound authenticator credentials. In particular, it must not derive the
 address from `implementation_code_id`: bootstrap and implementation code IDs may
 intentionally differ.
+
+This is also a protobuf-semantic breaking change for old registration clients.
+Field 2 is reserved, so protobuf decoders ignore a legacy caller-supplied
+`code_id`; the module still uses its configured code IDs. AA-API and other
+transaction producers must deploy the new generated message before registration
+is enabled.
 
 ## License
 

@@ -83,14 +83,14 @@ func (k Keeper) GetParams(ctx sdk.Context) (*types.Params, error) {
 	return &params, nil
 }
 
+// SetParams validates and stores intrinsically valid parameters. It does not
+// enforce current-state invariants such as bootstrap immutability or Wasm code
+// existence: genesis and chain upgrade handlers are trusted bootstrap paths
+// that may need to initialize those values. Runtime governance updates must go
+// through MsgUpdateParams, which enforces both invariants.
 func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
 	store := ctx.KVStore(k.storeKey)
 
-	// params must be valid before we save it
-	// there are two instances where SetParams is called - in Keeper.InitGenesis,
-	// and in msgServer.UpdateParams
-	// we can either perform the validation in those two functions, or do it
-	// together here. doing it here seems cleaner.
 	if err := params.Validate(); err != nil {
 		return err
 	}
