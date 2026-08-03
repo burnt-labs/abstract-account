@@ -3,6 +3,7 @@ package cli
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -26,22 +27,19 @@ func TestTxCmdCreation(t *testing.T) {
 
 	// Check that subcommands are properly added
 	subCommands := cmd.Commands()
-	require.Len(t, subCommands, 3)
+	require.Len(t, subCommands, 2)
 
-	var registerFound, migrateFound, updateParamsFound bool
+	var registerFound, updateParamsFound bool
 	for _, subCmd := range subCommands {
 		switch subCmd.Use {
-		case "register [msg] --salt [string] --funds [coins,optional]":
+		case "register [code-id] [msg] --salt [string] --funds [coins,optional]":
 			registerFound = true
-		case "migrate":
-			migrateFound = true
 		case "update-params [json-encoded-params]":
 			updateParamsFound = true
 		}
 	}
 
 	require.True(t, registerFound, "register command should be present")
-	require.True(t, migrateFound, "migrate command should be present")
 	require.True(t, updateParamsFound, "update-params command should be present")
 }
 
@@ -50,7 +48,7 @@ func TestRegisterCmdCreation(t *testing.T) {
 	cmd := registerCmd()
 
 	require.NotNil(t, cmd)
-	require.Equal(t, "register [msg] --salt [string] --funds [coins,optional]", cmd.Use)
+	require.Equal(t, "register [code-id] [msg] --salt [string] --funds [coins,optional]", cmd.Use)
 	require.Equal(t, "Register an abstract account", cmd.Short)
 	require.NotNil(t, cmd.RunE)
 	require.True(t, cmd.SilenceUsage)
@@ -125,13 +123,18 @@ func TestRegisterCmdValidation(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "one argument",
-			args:        []string{"{}"},
+			name:        "one argument only",
+			args:        []string{"1"},
+			expectError: true,
+		},
+		{
+			name:        "correct number of arguments",
+			args:        []string{"1", "{}"},
 			expectError: false,
 		},
 		{
-			name:        "two arguments",
-			args:        []string{"1", "{}"},
+			name:        "three arguments",
+			args:        []string{"1", "{}", "extra"},
 			expectError: true,
 		},
 	}
@@ -143,7 +146,7 @@ func TestRegisterCmdValidation(t *testing.T) {
 
 			// We only test argument validation here, not full execution
 			// The Args field should validate the number of arguments
-			err := cobra.ExactArgs(1)(cmd, tc.args)
+			err := cobra.ExactArgs(2)(cmd, tc.args)
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -231,14 +234,15 @@ func TestCommandStructure(t *testing.T) {
 func TestRegisterCmdExecutionErrors(t *testing.T) {
 	cmd := registerCmd()
 
-	// Test with an invalid instantiate message
-	cmd.SetArgs([]string{"{invalid"})
+	// Test with invalid code ID (non-numeric)
+	cmd.SetArgs([]string{"invalid-code-id", "{}"})
 	err := cmd.Execute()
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
 
-	// Test with a valid instantiate message but no client context.
+	// Test with a valid request but no client context.
 	cmd = registerCmd()
-	cmd.SetArgs([]string{"{}"})
+	cmd.SetArgs([]string{"1", "{}"})
 	err = cmd.Execute()
 	require.Error(t, err)
 	// This should fail because there's no proper client context set up
@@ -248,7 +252,7 @@ func TestRegisterCmdExecutionErrors(t *testing.T) {
 func TestRegisterCmdFlagErrors(t *testing.T) {
 	// Test salt flag handling
 	cmd := registerCmd()
-	cmd.SetArgs([]string{"{}"})
+	cmd.SetArgs([]string{"1", "{}"})
 
 	// Test with invalid funds format
 	cmd.Flags().Set("funds", "invalid-coins-format")
@@ -369,20 +373,21 @@ func TestTxCmdRunEFunction(t *testing.T) {
 
 // TestRegisterCmdErrorPaths tests specific error paths in register command
 func TestRegisterCmdErrorPaths(t *testing.T) {
-	// Test invalid instantiate message validation
+	// Test strconv.ParseUint error path
 	cmd := registerCmd()
-	cmd.SetArgs([]string{"{invalid"})
+	cmd.SetArgs([]string{"invalid-code-id", "{}"})
 	cmd.Flags().Set("salt", "test-salt")
 	cmd.Flags().Set("funds", "")
 
 	err := cmd.Execute()
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
 }
 
 // TestRegisterCmdCoinParsingError tests coin parsing error path
 func TestRegisterCmdCoinParsingError(t *testing.T) {
 	cmd := registerCmd()
-	cmd.SetArgs([]string{"{}"})
+	cmd.SetArgs([]string{"1", "{}"})
 	cmd.Flags().Set("salt", "test-salt")
 	cmd.Flags().Set("funds", "invalid-coins-format")
 
@@ -404,7 +409,7 @@ func TestUpdateParamsCmdJSONError(t *testing.T) {
 // TestRegisterCmdValidateBasicError tests ValidateBasic error path
 func TestRegisterCmdValidateBasicError(t *testing.T) {
 	cmd := registerCmd()
-	cmd.SetArgs([]string{"{invalid"})
+	cmd.SetArgs([]string{"0", "{}"})
 	cmd.Flags().Set("salt", "test-salt")
 	cmd.Flags().Set("funds", "")
 
@@ -432,14 +437,14 @@ func TestRegisterAccountFunction(t *testing.T) {
 	clientCtx := client.Context{}.
 		WithFromAddress(sdk.AccAddress("test-address"))
 
-	// Test with an invalid instantiate message
+	// Test with invalid code ID
 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	flagSet.String(flagSalt, "test-salt", "")
 	flagSet.String(flagFunds, "", "")
 
-	err := RegisterAccount(clientCtx, flagSet, []string{"{invalid"})
+	err := RegisterAccount(clientCtx, flagSet, []string{"invalid-code-id", "{}"})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid init msg")
+	require.Contains(t, err.Error(), "invalid syntax")
 }
 
 // TestRegisterAccountInvalidFunds tests RegisterAccount with invalid funds
@@ -451,7 +456,7 @@ func TestRegisterAccountInvalidFunds(t *testing.T) {
 	flagSet.String(flagSalt, "test-salt", "")
 	flagSet.String(flagFunds, "invalid-coins", "")
 
-	err := RegisterAccount(clientCtx, flagSet, []string{"{}"})
+	err := RegisterAccount(clientCtx, flagSet, []string{"1", "{}"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "amount")
 }
@@ -465,8 +470,8 @@ func TestRegisterAccountValidateBasicError(t *testing.T) {
 	flagSet.String(flagSalt, "test-salt", "")
 	flagSet.String(flagFunds, "", "")
 
-	// Invalid instantiate JSON should fail ValidateBasic.
-	err := RegisterAccount(clientCtx, flagSet, []string{"{invalid"})
+	// Zero code ID should fail ValidateBasic.
+	err := RegisterAccount(clientCtx, flagSet, []string{"0", "{}"})
 	require.Error(t, err)
 }
 
@@ -480,7 +485,7 @@ func TestRegisterAccountFlagErrors(t *testing.T) {
 	flagSet.String(flagFunds, "", "")
 	// Don't add salt flag to trigger error
 
-	err := RegisterAccount(clientCtx, flagSet, []string{"{}"})
+	err := RegisterAccount(clientCtx, flagSet, []string{"1", "{}"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "salt")
 
@@ -489,7 +494,7 @@ func TestRegisterAccountFlagErrors(t *testing.T) {
 	flagSet2.String(flagSalt, "test-salt", "")
 	// Don't add funds flag to trigger error
 
-	err = RegisterAccount(clientCtx, flagSet2, []string{"{}"})
+	err = RegisterAccount(clientCtx, flagSet2, []string{"1", "{}"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "amount")
 }
@@ -529,8 +534,12 @@ func TestRegisterAccountValidParams(t *testing.T) {
 	flagSet.String(flagFunds, "100utoken", "")
 
 	// Test argument parsing
-	args := []string{"{}"}
-	require.Len(t, args, 1)
+	args := []string{"1", "{}"}
+	require.Len(t, args, 2)
+
+	codeID, err := strconv.ParseUint(args[0], 10, 64)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), codeID)
 
 	// Test salt flag parsing
 	salt, err := flagSet.GetString(flagSalt)
@@ -573,7 +582,7 @@ func TestRunRegisterCmdFunction(t *testing.T) {
 	require.NotNil(t, cmd.RunE)
 
 	// Verify the command is properly configured
-	require.Equal(t, "register [msg] --salt [string] --funds [coins,optional]", cmd.Use)
+	require.Equal(t, "register [code-id] [msg] --salt [string] --funds [coins,optional]", cmd.Use)
 	require.True(t, cmd.SilenceUsage)
 }
 
@@ -599,7 +608,7 @@ func TestRegisterAccountCompleteErrorPaths(t *testing.T) {
 	flagSet.String("wrong-salt-name", "test-salt", "")
 	flagSet.String(flagFunds, "", "")
 
-	err := RegisterAccount(clientCtx, flagSet, []string{"{}"})
+	err := RegisterAccount(clientCtx, flagSet, []string{"1", "{}"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "salt")
 
@@ -608,7 +617,7 @@ func TestRegisterAccountCompleteErrorPaths(t *testing.T) {
 	flagSet2.String(flagSalt, "test-salt", "")
 	flagSet2.String("wrong-funds-name", "", "")
 
-	err = RegisterAccount(clientCtx, flagSet2, []string{"{}"})
+	err = RegisterAccount(clientCtx, flagSet2, []string{"1", "{}"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "amount")
 }
@@ -636,7 +645,7 @@ func TestCommandFunctionWrapperCoverage(t *testing.T) {
 	// Test that runRegisterCmd properly calls RegisterAccount
 	regCmd := registerCmd()
 	require.NotNil(t, regCmd.RunE)
-	require.Equal(t, "register [msg] --salt [string] --funds [coins,optional]", regCmd.Use)
+	require.Equal(t, "register [code-id] [msg] --salt [string] --funds [coins,optional]", regCmd.Use)
 
 	// Test that runUpdateParamsCmd properly calls UpdateParams
 	updateCmd := updateParamsCmd()
@@ -653,7 +662,7 @@ func TestWrapperFunctionErrorPaths(t *testing.T) {
 	// Test runRegisterCmd is properly assigned
 	regCmd := registerCmd()
 	require.NotNil(t, regCmd.RunE)
-	require.Equal(t, "register [msg] --salt [string] --funds [coins,optional]", regCmd.Use)
+	require.Equal(t, "register [code-id] [msg] --salt [string] --funds [coins,optional]", regCmd.Use)
 
 	// Test runUpdateParamsCmd is properly assigned
 	updateCmd := updateParamsCmd()
@@ -666,8 +675,8 @@ func TestRegisterAccountFullErrorCoverage(t *testing.T) {
 	// Test parameter validation without calling the actual function to avoid client context issues
 
 	// Test argument count validation
-	args := []string{"{}"}
-	require.Len(t, args, 1)
+	args := []string{"1", "{}"}
+	require.Len(t, args, 2)
 
 	// Test flag setup validation
 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)

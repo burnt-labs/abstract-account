@@ -7,6 +7,9 @@ pub struct MsgRegisterAccount {
     #[prost(string, tag = "1")]
     pub sender: String,
 
+    #[prost(uint64, tag = "2")]
+    pub code_id: u64,
+
     #[prost(bytes = "vec", tag = "3")]
     pub msg: Vec<u8>,
 
@@ -42,39 +45,6 @@ pub struct MsgRegisterAccountResponse {
 
 impl TypeUrl for MsgRegisterAccountResponse {
     const TYPE_URL: &'static str = "/abstractaccount.v1.MsgRegisterAccountResponse";
-}
-
-#[derive(Clone, PartialEq, prost::Message)]
-pub struct MsgMigrateAccount {
-    #[prost(string, tag = "1")]
-    pub sender: String,
-}
-
-impl From<MsgMigrateAccount> for CosmosMsg {
-    fn from(msg: MsgMigrateAccount) -> Self {
-        CosmosMsg::Stargate {
-            type_url: MsgMigrateAccount::TYPE_URL.into(),
-            value:    msg.encode_to_vec().into(),
-        }
-    }
-}
-
-impl TypeUrl for MsgMigrateAccount {
-    const TYPE_URL: &'static str = "/abstractaccount.v1.MsgMigrateAccount";
-}
-
-#[allow(dead_code)]
-#[derive(Clone, PartialEq, prost::Message)]
-pub struct MsgMigrateAccountResponse {
-    #[prost(bool, tag = "1")]
-    pub migrated: bool,
-
-    #[prost(bytes = "vec", tag = "2")]
-    pub data: Vec<u8>,
-}
-
-impl TypeUrl for MsgMigrateAccountResponse {
-    const TYPE_URL: &'static str = "/abstractaccount.v1.MsgMigrateAccountResponse";
 }
 
 // TODO: add definitions for AbstractAccount and NilPubKey

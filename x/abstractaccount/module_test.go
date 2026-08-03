@@ -187,7 +187,6 @@ func storeCodeAndRegisterAccount(
 		return nil, err
 	}
 	params.BootstrapCodeID = codeID
-	params.ImplementationCodeID = codeID
 	params.RegistrationEnabled = true
 	if err := k.SetParams(ctx, params); err != nil {
 		return nil, err
@@ -202,6 +201,7 @@ func storeCodeAndRegisterAccount(
 	// register the account
 	res, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: senderAddr.String(),
+		CodeID: codeID,
 		Msg:    msgBytes,
 		Funds:  funds,
 		Salt:   []byte("henlo"),

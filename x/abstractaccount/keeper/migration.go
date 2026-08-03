@@ -15,8 +15,8 @@ type Migrator struct {
 	cdc codec.BinaryCodec
 }
 
-// Migrate2to3 adds chain-owned registration code IDs. They remain zero until
-// the chain upgrade configures its bootstrap and implementation code IDs.
+// Migrate2to3 adds fixed-bootstrap registration parameters. Registration stays
+// paused until the chain upgrade configures its bootstrap code ID.
 func (m Migrator) Migrate2to3(ctx sdk.Context) error {
 	return v3.MigrateStore(ctx, m.key, m.cdc)
 }

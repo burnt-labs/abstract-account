@@ -12,6 +12,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
+	wasmtestdata "github.com/CosmWasm/wasmd/x/wasm/keeper/testdata"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	"github.com/burnt-labs/abstract-account/simapp"
@@ -85,47 +86,38 @@ func TestUpdateParams(t *testing.T) {
 	}
 }
 
-func TestUpdateParamsRegistrationCodeIDs(t *testing.T) {
+func TestUpdateParamsBootstrapCodeID(t *testing.T) {
 	app := simapptesting.MakeSimpleMockApp()
 	ctx := app.NewContext(false)
 	k := app.AbstractAccountKeeper
 
 	bootstrapCodeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	implementationCodeID, err := storeCode(ctx, k.ContractKeeper())
-	require.NoError(t, err)
-
 	msgServer := keeper.NewMsgServerImpl(k)
-	configured, err := types.NewParamsWithRegistrationCodeIDs(
+
+	nonexistentBootstrap := types.DefaultParams()
+	nonexistentBootstrap.BootstrapCodeID = 999
+	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{Sender: simapp.Authority, Params: nonexistentBootstrap})
+	require.ErrorIs(t, err, types.ErrCodeIDNotFound)
+
+	configured, err := types.NewParamsWithBootstrapCodeID(
 		false,
-		[]uint64{bootstrapCodeID, implementationCodeID},
+		[]uint64{bootstrapCodeID},
 		types.DefaultMaxGas,
 		types.DefaultMaxGas,
-		bootstrapCodeID,
 		bootstrapCodeID,
 	)
 	require.NoError(t, err)
 	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{Sender: simapp.Authority, Params: configured})
 	require.NoError(t, err)
 
-	configured.ImplementationCodeID = implementationCodeID
-	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{Sender: simapp.Authority, Params: configured})
-	require.NoError(t, err)
-
 	changedBootstrap := *configured
-	changedBootstrap.BootstrapCodeID = implementationCodeID
+	changedBootstrap.BootstrapCodeID = bootstrapCodeID + 1
 	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{Sender: simapp.Authority, Params: &changedBootstrap})
 	require.ErrorIs(t, err, types.ErrImmutableBootstrap)
-
-	nonexistentImplementation := *configured
-	nonexistentImplementation.AllowAllCodeIDs = true
-	nonexistentImplementation.AllowedCodeIDs = nil
-	nonexistentImplementation.ImplementationCodeID = 999
-	_, err = msgServer.UpdateParams(ctx, &types.MsgUpdateParams{Sender: simapp.Authority, Params: &nonexistentImplementation})
-	require.ErrorIs(t, err, types.ErrCodeIDNotFound)
 }
 
-func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.T) {
+func TestRegistrationPausePreservesAddressQueries(t *testing.T) {
 	app := simapptesting.MakeMockApp([]banktypes.Balance{{
 		Address: user.String(),
 		Coins:   userInitialBalance,
@@ -135,8 +127,8 @@ func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.
 
 	codeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	params, err := types.NewParamsWithRegistrationCodeIDs(
-		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, codeID, codeID,
+	params, err := types.NewParamsWithBootstrapCodeID(
+		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, codeID,
 	)
 	require.NoError(t, err)
 	require.NoError(t, k.SetParams(ctx, params))
@@ -144,6 +136,7 @@ func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.
 	msgServer := keeper.NewMsgServerImpl(k)
 	registered, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: codeID,
 		Msg:    mustMarshalAccountInitMsg(t),
 		Salt:   []byte("registered-before-pause"),
 	})
@@ -170,14 +163,13 @@ func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.
 
 	_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: codeID,
 		Msg:    mustMarshalAccountInitMsg(t),
 		Salt:   salt,
 	})
 	require.ErrorIs(t, err, types.ErrRegistrationDisabled)
 
-	migrated, err := msgServer.MigrateAccount(ctx, &types.MsgMigrateAccount{Sender: registered.Address})
-	require.NoError(t, err)
-	require.False(t, migrated.Migrated)
+	require.NotEmpty(t, registered.Address)
 
 	resumed := paused
 	resumed.RegistrationEnabled = true
@@ -188,6 +180,7 @@ func TestRegistrationPausePreservesAddressQueriesAndAccountMigration(t *testing.
 	require.NoError(t, err)
 	res, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: codeID,
 		Msg:    mustMarshalAccountInitMsg(t),
 		Salt:   salt,
 	})
@@ -227,12 +220,11 @@ func TestRegisterAccount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), codeID)
 
-		params, err := types.NewParamsWithRegistrationCodeIDs(
+		params, err := types.NewParamsWithBootstrapCodeID(
 			tc.allowAllCodeIDs,
 			tc.allowedCodeIDs,
 			types.DefaultMaxGas,
 			types.DefaultMaxGas,
-			codeID,
 			codeID,
 		)
 		require.NoError(t, err)
@@ -260,7 +252,7 @@ func TestRegisterAccount(t *testing.T) {
 	}
 }
 
-func TestRegisterAccountUsesChainOwnedCodeIDsAndRegistry(t *testing.T) {
+func TestRegisterAccountUsesFixedBootstrapAndRegistry(t *testing.T) {
 	app := simapptesting.MakeMockApp([]banktypes.Balance{{
 		Address: user.String(),
 		Coins:   userInitialBalance,
@@ -271,12 +263,11 @@ func TestRegisterAccountUsesChainOwnedCodeIDsAndRegistry(t *testing.T) {
 	bootstrapCodeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
 
-	params, err := types.NewParamsWithRegistrationCodeIDs(
+	params, err := types.NewParamsWithBootstrapCodeID(
 		true,
 		nil,
 		types.DefaultMaxGas,
 		types.DefaultMaxGas,
-		bootstrapCodeID,
 		bootstrapCodeID,
 	)
 	require.NoError(t, err)
@@ -299,6 +290,7 @@ func TestRegisterAccountUsesChainOwnedCodeIDsAndRegistry(t *testing.T) {
 	require.NoError(t, err)
 	res, err := keeper.NewMsgServerImpl(k).RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: bootstrapCodeID,
 		Msg:    msgBytes,
 		Salt:   salt,
 	})
@@ -324,6 +316,7 @@ func TestRegisterAccountUsesChainOwnedCodeIDsAndRegistry(t *testing.T) {
 
 	_, err = keeper.NewMsgServerImpl(k).RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: bootstrapCodeID,
 		Msg:    msgBytes,
 		Salt:   salt,
 	})
@@ -342,8 +335,8 @@ func TestRegisterAccountMigrationFailureIsAtomic(t *testing.T) {
 	require.NoError(t, err)
 	implementationCodeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	params, err := types.NewParamsWithRegistrationCodeIDs(
-		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, bootstrapCodeID, implementationCodeID,
+	params, err := types.NewParamsWithBootstrapCodeID(
+		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, bootstrapCodeID,
 	)
 	require.NoError(t, err)
 	require.NoError(t, k.SetParams(ctx, params))
@@ -357,6 +350,7 @@ func TestRegisterAccountMigrationFailureIsAtomic(t *testing.T) {
 	cacheCtx, _ := ctx.CacheContext()
 	_, err = keeper.NewMsgServerImpl(k).RegisterAccount(cacheCtx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: implementationCodeID,
 		Msg:    msgBytes,
 		Salt:   salt,
 	})
@@ -368,7 +362,7 @@ func TestRegisterAccountMigrationFailureIsAtomic(t *testing.T) {
 	require.Nil(t, app.AccountKeeper.GetAccount(ctx, predicted))
 }
 
-func TestMigrateAccountUsesCurrentImplementationCodeID(t *testing.T) {
+func TestRegisterAccountMigratesToCallerSelectedAllowedCodeID(t *testing.T) {
 	app := simapptesting.MakeMockApp([]banktypes.Balance{{
 		Address: user.String(),
 		Coins:   userInitialBalance,
@@ -378,36 +372,89 @@ func TestMigrateAccountUsesCurrentImplementationCodeID(t *testing.T) {
 
 	bootstrapCodeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	params, err := types.NewParamsWithRegistrationCodeIDs(
-		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, bootstrapCodeID, bootstrapCodeID,
+	implementationCodeID, _, err := k.ContractKeeper().Create(
+		ctx,
+		user,
+		wasmtestdata.IBCReflectContractWasm(),
+		nil,
+	)
+	require.NoError(t, err)
+	params, err := types.NewParamsWithBootstrapCodeID(
+		false,
+		[]uint64{implementationCodeID},
+		types.DefaultMaxGas,
+		types.DefaultMaxGas,
+		bootstrapCodeID,
 	)
 	require.NoError(t, err)
 	require.NoError(t, k.SetParams(ctx, params))
 
-	msgBytes, err := json.Marshal(&AccountInitMsg{PubKey: simapptesting.MakeRandomPubKey().Bytes()})
+	salt := []byte("caller-selected-implementation")
+	predicted, err := k.PredictAccountAddress(ctx, user, salt)
 	require.NoError(t, err)
-	registered, err := keeper.NewMsgServerImpl(k).RegisterAccount(ctx, &types.MsgRegisterAccount{
+	res, err := keeper.NewMsgServerImpl(k).RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
-		Msg:    msgBytes,
-		Salt:   []byte("migrate-account"),
+		CodeID: implementationCodeID,
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   salt,
 	})
 	require.NoError(t, err)
+	require.Equal(t, predicted.String(), res.Address)
 
-	msgServer := keeper.NewMsgServerImpl(k)
-	current, err := msgServer.MigrateAccount(ctx, &types.MsgMigrateAccount{Sender: registered.Address})
-	require.NoError(t, err)
-	require.False(t, current.Migrated)
+	contractInfo := app.WasmKeeper.GetContractInfo(ctx, predicted)
+	require.NotNil(t, contractInfo)
+	require.Equal(t, implementationCodeID, contractInfo.CodeID)
+	require.Equal(t, predicted.String(), contractInfo.Admin)
+	_, ok := app.AccountKeeper.GetAccount(ctx, predicted).(*types.AbstractAccount)
+	require.True(t, ok)
+}
 
-	implementationCodeID, err := storeCode(ctx, k.ContractKeeper())
+func TestRegisterAccountRejectsInvalidRequestedImplementationsBeforeInstantiation(t *testing.T) {
+	app := simapptesting.MakeMockApp([]banktypes.Balance{{
+		Address: user.String(),
+		Coins:   userInitialBalance,
+	}})
+	ctx := app.NewContext(false).WithBlockTime(time.Now())
+	k := app.AbstractAccountKeeper
+
+	bootstrapCodeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	params.ImplementationCodeID = implementationCodeID
+	params, err := types.NewParamsWithBootstrapCodeID(
+		false,
+		[]uint64{bootstrapCodeID},
+		types.DefaultMaxGas,
+		types.DefaultMaxGas,
+		bootstrapCodeID,
+	)
+	require.NoError(t, err)
 	require.NoError(t, k.SetParams(ctx, params))
+	msgServer := keeper.NewMsgServerImpl(k)
 
-	_, err = msgServer.MigrateAccount(ctx, &types.MsgMigrateAccount{Sender: registered.Address})
-	require.ErrorContains(t, err, "Missing export migrate")
+	unallowedSalt := []byte("unallowed-implementation")
+	_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+		Sender: user.String(),
+		CodeID: bootstrapCodeID + 1,
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   unallowedSalt,
+	})
+	require.ErrorIs(t, err, types.ErrNotAllowedCodeID)
+	_, found := k.GetAccountAddress(ctx, user, unallowedSalt)
+	require.False(t, found)
 
-	_, err = msgServer.MigrateAccount(ctx, &types.MsgMigrateAccount{Sender: user.String()})
-	require.ErrorIs(t, err, types.ErrNotAbstractAccount)
+	allowAll := *params
+	allowAll.AllowAllCodeIDs = true
+	allowAll.AllowedCodeIDs = nil
+	require.NoError(t, k.SetParams(ctx, &allowAll))
+	missingSalt := []byte("missing-implementation")
+	_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
+		Sender: user.String(),
+		CodeID: 999,
+		Msg:    mustMarshalAccountInitMsg(t),
+		Salt:   missingSalt,
+	})
+	require.ErrorIs(t, err, types.ErrCodeIDNotFound)
+	_, found = k.GetAccountAddress(ctx, user, missingSalt)
+	require.False(t, found)
 }
 
 func TestAccountAddressRecognizesCanonicalPreRegistryAccount(t *testing.T) {
@@ -420,8 +467,8 @@ func TestAccountAddressRecognizesCanonicalPreRegistryAccount(t *testing.T) {
 
 	codeID, err := storeCode(ctx, k.ContractKeeper())
 	require.NoError(t, err)
-	params, err := types.NewParamsWithRegistrationCodeIDs(
-		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, codeID, codeID,
+	params, err := types.NewParamsWithBootstrapCodeID(
+		true, nil, types.DefaultMaxGas, types.DefaultMaxGas, codeID,
 	)
 	require.NoError(t, err)
 	require.NoError(t, k.SetParams(ctx, params))
@@ -464,7 +511,7 @@ func storeCode(ctx sdk.Context, contractKeeper wasmtypes.ContractOpsKeeper) (uin
 	return codeID, err
 }
 
-func registerAccount(ctx sdk.Context, msgServer types.MsgServer, _ uint64) (sdk.AccAddress, error) {
+func registerAccount(ctx sdk.Context, msgServer types.MsgServer, codeID uint64) (sdk.AccAddress, error) {
 	msgBytes, err := json.Marshal(&AccountInitMsg{
 		PubKey: simapptesting.MakeRandomPubKey().Bytes(),
 	})
@@ -474,6 +521,7 @@ func registerAccount(ctx sdk.Context, msgServer types.MsgServer, _ uint64) (sdk.
 
 	res, err := msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 		Sender: user.String(),
+		CodeID: codeID,
 		Msg:    msgBytes,
 		Funds:  acctRegisterFunds,
 		Salt:   []byte("hello"),
@@ -506,7 +554,7 @@ func TestRegisterAccountErrors(t *testing.T) {
 	ctx := app.NewContext(false).WithBlockTime(time.Now())
 
 	// Set up params allowing code ID 1
-	params, err := types.NewParamsWithRegistrationCodeIDs(false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 1, 1)
+	params, err := types.NewParamsWithBootstrapCodeID(false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 1)
 	require.NoError(t, err)
 
 	k := app.AbstractAccountKeeper
@@ -524,6 +572,7 @@ func TestRegisterAccountErrors(t *testing.T) {
 
 		_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 			Sender: "invalid-address",
+			CodeID: 1,
 			Msg:    msgBytes,
 			Funds:  acctRegisterFunds,
 			Salt:   []byte("test"),
@@ -540,6 +589,7 @@ func TestRegisterAccountErrors(t *testing.T) {
 
 		_, err = msgServer.RegisterAccount(ctx, &types.MsgRegisterAccount{
 			Sender: user.String(),
+			CodeID: 1,
 			Msg:    msgBytes,
 			Funds:  acctRegisterFunds,
 			Salt:   []byte("test"),

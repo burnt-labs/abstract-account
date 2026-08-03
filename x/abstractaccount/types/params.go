@@ -13,10 +13,10 @@ func NewParams(allowAllCodeIDs bool, allowedCodeIDs []uint64, maxGasBefore, maxG
 	return params, params.Validate()
 }
 
-func NewParamsWithRegistrationCodeIDs(
+func NewParamsWithBootstrapCodeID(
 	allowAllCodeIDs bool,
 	allowedCodeIDs []uint64,
-	maxGasBefore, maxGasAfter, bootstrapCodeID, implementationCodeID uint64,
+	maxGasBefore, maxGasAfter, bootstrapCodeID uint64,
 ) (*Params, error) {
 	params, err := NewParams(allowAllCodeIDs, allowedCodeIDs, maxGasBefore, maxGasAfter)
 	if err != nil {
@@ -24,7 +24,6 @@ func NewParamsWithRegistrationCodeIDs(
 	}
 
 	params.BootstrapCodeID = bootstrapCodeID
-	params.ImplementationCodeID = implementationCodeID
 	params.RegistrationEnabled = true
 
 	return params, params.Validate()
@@ -68,25 +67,19 @@ func (p *Params) Validate() error {
 }
 
 func (p *Params) validateRegistration() error {
-	if (p.BootstrapCodeID == 0) != (p.ImplementationCodeID == 0) {
-		return ErrMismatchedCodeIDs
-	}
 	if p.RegistrationEnabled && !p.RegistrationConfigured() {
 		return ErrRegistrationNotConfigured
-	}
-	if p.ImplementationCodeID != 0 && !p.IsAllowed(p.ImplementationCodeID) {
-		return ErrNotAllowedCodeID.Wrap("implementation code ID")
 	}
 
 	return nil
 }
 
 func (p *Params) RegistrationConfigured() bool {
-	return p.BootstrapCodeID != 0 && p.ImplementationCodeID != 0
+	return p.BootstrapCodeID != 0
 }
 
-// IsAllowed returns whether a code ID is allowed for a raw Wasm migration of
-// an AbstractAccount.
+// IsAllowed returns whether a code ID is allowed as a registration
+// implementation or raw Wasm migration target for an AbstractAccount.
 func (p *Params) IsAllowed(codeID uint64) bool {
 	if p.AllowAllCodeIDs {
 		return true

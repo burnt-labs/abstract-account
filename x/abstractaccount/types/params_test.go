@@ -3,7 +3,6 @@ package types_test
 import (
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
@@ -91,14 +90,14 @@ func TestValidateParams(t *testing.T) {
 			expErr: false,
 		},
 		{
-			desc: "bootstrap configured without implementation",
+			desc: "bootstrap configured while registration remains paused",
 			params: &types.Params{
 				AllowAllCodeIDs: true,
 				MaxGasBefore:    types.DefaultMaxGas,
 				MaxGasAfter:     types.DefaultMaxGas,
 				BootstrapCodeID: 1,
 			},
-			expErr: true,
+			expErr: false,
 		},
 		{
 			desc: "registration enabled before code IDs are configured",
@@ -111,24 +110,13 @@ func TestValidateParams(t *testing.T) {
 			expErr: true,
 		},
 		{
-			desc: "implementation code ID must be allowed",
+			desc: "valid enabled bootstrap registration",
 			params: &types.Params{
-				AllowedCodeIDs:       []uint64{1},
-				MaxGasBefore:         types.DefaultMaxGas,
-				MaxGasAfter:          types.DefaultMaxGas,
-				BootstrapCodeID:      1,
-				ImplementationCodeID: 2,
-			},
-			expErr: true,
-		},
-		{
-			desc: "valid configured registration code IDs",
-			params: &types.Params{
-				AllowedCodeIDs:       []uint64{2},
-				MaxGasBefore:         types.DefaultMaxGas,
-				MaxGasAfter:          types.DefaultMaxGas,
-				BootstrapCodeID:      1,
-				ImplementationCodeID: 2,
+				AllowedCodeIDs:      []uint64{2},
+				MaxGasBefore:        types.DefaultMaxGas,
+				MaxGasAfter:         types.DefaultMaxGas,
+				BootstrapCodeID:     1,
+				RegistrationEnabled: true,
 			},
 			expErr: false,
 		},
@@ -143,24 +131,20 @@ func TestValidateParams(t *testing.T) {
 	}
 }
 
-func TestRegistrationParamsAndMigrateMessage(t *testing.T) {
-	params, err := types.NewParamsWithRegistrationCodeIDs(
-		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, 1, 2,
+func TestRegistrationParams(t *testing.T) {
+	params, err := types.NewParamsWithBootstrapCodeID(
+		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, 1,
 	)
 	require.NoError(t, err)
 	require.True(t, params.RegistrationEnabled)
 	require.True(t, params.RegistrationConfigured())
+	require.Equal(t, uint64(1), params.BootstrapCodeID)
+	require.True(t, params.IsAllowed(2))
 
-	_, err = types.NewParamsWithRegistrationCodeIDs(
-		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 1, 2,
+	_, err = types.NewParamsWithBootstrapCodeID(
+		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 0,
 	)
-	require.ErrorIs(t, err, types.ErrNotAllowedCodeID)
-
-	sender := sdk.AccAddress([]byte("migrate-account-user")).String()
-	msg := &types.MsgMigrateAccount{Sender: sender}
-	require.NoError(t, msg.ValidateBasic())
-	require.Equal(t, sender, msg.GetSigners()[0].String())
-	require.Error(t, (&types.MsgMigrateAccount{Sender: "invalid"}).ValidateBasic())
+	require.ErrorIs(t, err, types.ErrRegistrationNotConfigured)
 }
 
 func TestDeterminedAllowedCodeID(t *testing.T) {

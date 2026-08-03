@@ -39,7 +39,7 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 			req.Params.BootstrapCodeID,
 		)
 	}
-	if err := ms.validateRegistrationCodeIDs(ctx, req.Params); err != nil {
+	if err := ms.validateRegistrationParams(ctx, req.Params); err != nil {
 		return nil, err
 	}
 
@@ -50,7 +50,7 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
-func (ms msgServer) validateRegistrationCodeIDs(ctx sdk.Context, params *types.Params) error {
+func (ms msgServer) validateRegistrationParams(ctx sdk.Context, params *types.Params) error {
 	if err := params.Validate(); err != nil {
 		return err
 	}
@@ -60,9 +60,6 @@ func (ms msgServer) validateRegistrationCodeIDs(ctx sdk.Context, params *types.P
 
 	if ms.k.vk.GetCodeInfo(ctx, params.BootstrapCodeID) == nil {
 		return types.ErrCodeIDNotFound.Wrapf("bootstrap code ID %d", params.BootstrapCodeID)
-	}
-	if params.ImplementationCodeID != params.BootstrapCodeID && ms.k.vk.GetCodeInfo(ctx, params.ImplementationCodeID) == nil {
-		return types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", params.ImplementationCodeID)
 	}
 
 	return nil
@@ -114,15 +111,34 @@ func (ms msgServer) instantiateAccount(
 		return nil, nil, fmt.Errorf("instantiated account address %s does not match predicted address %s", contractAddr, predicted)
 	}
 
-	// The XION account contract's MigrateMsg is an empty object. Keeping this in
-	// the module means callers never need implementation-specific migration data.
-	if params.ImplementationCodeID != params.BootstrapCodeID {
-		if _, err = ms.k.ck.Migrate(ctx, contractAddr, sender, params.ImplementationCodeID, []byte("{}")); err != nil {
+	// The fixed bootstrap controls only the address. The caller-selected,
+	// allowlisted implementation remains the final code for this account.
+	// XION account implementations use an empty MigrateMsg.
+	if req.CodeID != params.BootstrapCodeID {
+		if _, err = ms.k.ck.Migrate(ctx, contractAddr, sender, req.CodeID, []byte("{}")); err != nil {
 			return nil, nil, err
 		}
 	}
 
 	return contractAddr, data, nil
+}
+
+func (ms msgServer) validateRegistrationRequest(
+	ctx sdk.Context,
+	params *types.Params,
+	req *types.MsgRegisterAccount,
+) error {
+	if !params.RegistrationEnabled {
+		return types.ErrRegistrationDisabled
+	}
+	if !params.IsAllowed(req.CodeID) {
+		return types.ErrNotAllowedCodeID.Wrapf("registration implementation code ID %d", req.CodeID)
+	}
+	if req.CodeID != params.BootstrapCodeID && ms.k.vk.GetCodeInfo(ctx, req.CodeID) == nil {
+		return types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", req.CodeID)
+	}
+
+	return nil
 }
 
 func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegisterAccount) (*types.MsgRegisterAccountResponse, error) {
@@ -133,8 +149,8 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		return nil, err
 	}
 
-	if !params.RegistrationEnabled {
-		return nil, types.ErrRegistrationDisabled
+	if err := ms.validateRegistrationRequest(ctx, params, req); err != nil {
+		return nil, err
 	}
 
 	senderAddr, err := sdk.AccAddressFromBech32(req.Sender)
@@ -170,14 +186,14 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		"account registered",
 		types.AttributeKeyCreator, req.Sender,
 		types.AttributeKeyBootstrapCodeID, params.BootstrapCodeID,
-		types.AttributeKeyCodeID, params.ImplementationCodeID,
+		types.AttributeKeyCodeID, req.CodeID,
 		types.AttributeKeyContractAddr, contractAddr.String(),
 		types.AttributeKeyAccountNumber, acc.GetAccountNumber(),
 	)
 
 	if err = ctx.EventManager().EmitTypedEvent(&types.EventAccountRegistered{
 		Creator:         req.Sender,
-		CodeID:          params.ImplementationCodeID,
+		CodeID:          req.CodeID,
 		BootstrapCodeID: params.BootstrapCodeID,
 		ContractAddr:    contractAddr.String(),
 		AccountNumber:   acc.GetAccountNumber(),
@@ -186,50 +202,4 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 	}
 
 	return &types.MsgRegisterAccountResponse{Address: contractAddr.String(), Data: data}, nil
-}
-
-// ------------------------------- MigrateAccount -----------------------------
-
-func (ms msgServer) MigrateAccount(goCtx context.Context, req *types.MsgMigrateAccount) (*types.MsgMigrateAccountResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-
-	address, err := sdk.AccAddressFromBech32(req.Sender)
-	if err != nil {
-		return nil, err
-	}
-	if !ms.k.IsAbstractAccount(ctx, address) {
-		return nil, types.ErrNotAbstractAccount
-	}
-
-	params, err := ms.k.GetParams(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !params.RegistrationConfigured() {
-		return nil, types.ErrRegistrationNotConfigured
-	}
-	if ms.k.vk.GetCodeInfo(ctx, params.ImplementationCodeID) == nil {
-		return nil, types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", params.ImplementationCodeID)
-	}
-
-	contractInfo := ms.k.vk.GetContractInfo(ctx, address)
-	if contractInfo == nil {
-		return nil, types.ErrNotAbstractAccount.Wrap("contract info not found")
-	}
-	if contractInfo.CodeID == params.ImplementationCodeID {
-		return &types.MsgMigrateAccountResponse{Migrated: false}, nil
-	}
-
-	data, err := ms.k.ck.Migrate(ctx, address, address, params.ImplementationCodeID, []byte("{}"))
-	if err != nil {
-		return nil, err
-	}
-	if err = ctx.EventManager().EmitTypedEvent(&types.EventAccountMigrated{
-		ContractAddr: address.String(),
-		CodeID:       params.ImplementationCodeID,
-	}); err != nil {
-		return nil, err
-	}
-
-	return &types.MsgMigrateAccountResponse{Migrated: true, Data: data}, nil
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -32,45 +33,17 @@ func GetTxCmd() *cobra.Command {
 
 	cmd.AddCommand(
 		registerCmd(),
-		migrateCmd(),
 		updateParamsCmd(),
 	)
 
 	return cmd
 }
 
-func migrateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:          "migrate",
-		Short:        "Migrate an abstract account to the current implementation",
-		Args:         cobra.NoArgs,
-		RunE:         runMigrateCmd,
-		SilenceUsage: true,
-	}
-
-	flags.AddTxFlagsToCmd(cmd)
-	return cmd
-}
-
-func runMigrateCmd(cmd *cobra.Command, _ []string) error {
-	clientCtx, err := client.GetClientTxContext(cmd)
-	if err != nil {
-		return err
-	}
-
-	msg := &types.MsgMigrateAccount{Sender: clientCtx.GetFromAddress().String()}
-	if err := msg.ValidateBasic(); err != nil {
-		return err
-	}
-
-	return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
-}
-
 func registerCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "register [msg] --salt [string] --funds [coins,optional]",
+		Use:          "register [code-id] [msg] --salt [string] --funds [coins,optional]",
 		Short:        "Register an abstract account",
-		Args:         cobra.ExactArgs(1),
+		Args:         cobra.ExactArgs(2),
 		RunE:         runRegisterCmd,
 		SilenceUsage: true,
 	}
@@ -93,6 +66,11 @@ func runRegisterCmd(cmd *cobra.Command, args []string) error {
 }
 
 func RegisterAccount(clientCtx client.Context, flagSet *pflag.FlagSet, args []string) error {
+	codeID, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return err
+	}
+
 	salt, err := flagSet.GetString(flagSalt)
 	if err != nil {
 		return fmt.Errorf("salt: %s", err)
@@ -110,7 +88,8 @@ func RegisterAccount(clientCtx client.Context, flagSet *pflag.FlagSet, args []st
 
 	msg := &types.MsgRegisterAccount{
 		Sender: clientCtx.GetFromAddress().String(),
-		Msg:    []byte(args[0]),
+		CodeID: codeID,
+		Msg:    []byte(args[1]),
 		Funds:  amount,
 		Salt:   []byte(salt),
 	}

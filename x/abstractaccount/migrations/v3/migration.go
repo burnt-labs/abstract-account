@@ -8,9 +8,9 @@ import (
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
-// MigrateStore adds the chain-owned registration parameters in an unconfigured,
-// paused state. Code IDs are chain-specific and must be configured by the XION
-// upgrade before registration is enabled.
+// MigrateStore adds the fixed bootstrap registration parameters in an
+// unconfigured, paused state. The bootstrap code ID is chain-specific and must
+// be configured by the XION upgrade before registration is enabled.
 func MigrateStore(ctx sdk.Context, key storetypes.StoreKey, cdc codec.BinaryCodec) error {
 	store := ctx.KVStore(key)
 	bz := store.Get(types.KeyParams)
@@ -23,7 +23,6 @@ func MigrateStore(ctx sdk.Context, key storetypes.StoreKey, cdc codec.BinaryCode
 		return types.ErrParsingParams.Wrap(err.Error())
 	}
 	params.BootstrapCodeID = 0
-	params.ImplementationCodeID = 0
 	params.RegistrationEnabled = false
 
 	bz, err := cdc.Marshal(&params)

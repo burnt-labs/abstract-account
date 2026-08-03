@@ -362,6 +362,7 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		// Valid message
 		validMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
+			CodeID: 1,
 			Msg:    []byte(`{"pubkey": "test"}`),
 			Funds:  validCoins,
 			Salt:   []byte("test-salt"),
@@ -377,6 +378,7 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		// Invalid sender address
 		invalidSenderMsg := &types.MsgRegisterAccount{
 			Sender: invalidAddr,
+			CodeID: 1,
 			Msg:    []byte(`{}`),
 			Funds:  nil,
 			Salt:   []byte("salt"),
@@ -385,9 +387,19 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		s.Require().Error(err)
 		s.Require().Contains(err.Error(), "invalid sender address")
 
+		zeroCodeIDMsg := &types.MsgRegisterAccount{
+			Sender: testAddr.String(),
+			Msg:    []byte(`{}`),
+			Salt:   []byte("salt"),
+		}
+		err = zeroCodeIDMsg.ValidateBasic()
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "code id cannot be zero")
+
 		// Invalid init message (malformed JSON)
 		invalidInitMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
+			CodeID: 1,
 			Msg:    []byte(`{invalid json`), // Malformed JSON
 			Funds:  validCoins,
 			Salt:   []byte("salt"),
@@ -399,6 +411,7 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		// Invalid funds (negative amount)
 		invalidFundsMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
+			CodeID: 1,
 			Msg:    []byte(`{}`),
 			Funds:  sdk.Coins{sdk.Coin{Denom: "utoken", Amount: math.NewInt(-1)}}, // Invalid coin
 			Salt:   []byte("salt"),
@@ -409,6 +422,7 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		// Invalid funds (empty denom)
 		invalidDenomMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
+			CodeID: 1,
 			Msg:    []byte(`{}`),
 			Funds:  sdk.Coins{sdk.Coin{Denom: "", Amount: math.NewInt(100)}}, // Empty denom
 			Salt:   []byte("salt"),
@@ -423,6 +437,7 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		}
 		invalidSaltMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
+			CodeID: 1,
 			Msg:    []byte(`{}`),
 			Funds:  nil,
 			Salt:   longSalt,
@@ -663,6 +678,7 @@ func (s *AbstractAccountTypesTestSuite) TestRegisterInterfaces() {
 	s.Run("MsgRegisterAccount implements sdk.Msg", func() {
 		msg := &types.MsgRegisterAccount{
 			Sender: "test-sender",
+			CodeID: 1,
 			Msg:    []byte("test-msg"),
 			Funds:  sdk.NewCoins(),
 			Salt:   []byte("test-salt"),
@@ -775,6 +791,7 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 	s.Run("Valid MsgRegisterAccount", func() {
 		msg := &types.MsgRegisterAccount{
 			Sender: "cosmos1def456",
+			CodeID: 1,
 			Msg:    []byte("test message"),
 			Funds:  []sdk.Coin{sdk.NewInt64Coin("utoken", 1000)},
 			Salt:   []byte("test salt"),
@@ -791,6 +808,7 @@ func (s *AbstractAccountTypesTestSuite) TestNewAnyFromProtoMsg() {
 		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		s.Require().NoError(err)
 		s.Require().Equal(msg.Sender, decoded.Sender)
+		s.Require().Equal(msg.CodeID, decoded.CodeID)
 		s.Require().Equal(msg.Msg, decoded.Msg)
 		s.Require().Equal(msg.Salt, decoded.Salt)
 	})
@@ -870,6 +888,7 @@ func TestNewAnyFromProtoMsg_Standalone(t *testing.T) {
 		// Create a more complex message to test
 		msg := &types.MsgRegisterAccount{
 			Sender: "cosmos1example123456789",
+			CodeID: 1,
 			Msg:    []byte(`{"instantiate": {"admin": "cosmos1admin"}}`),
 			Funds: []sdk.Coin{
 				sdk.NewInt64Coin("uatom", 1000000),
@@ -889,6 +908,7 @@ func TestNewAnyFromProtoMsg_Standalone(t *testing.T) {
 		err = proto.Unmarshal(anyFrom.Value, &decoded)
 		require.NoError(t, err)
 		require.Equal(t, msg.Sender, decoded.Sender)
+		require.Equal(t, msg.CodeID, decoded.CodeID)
 		require.Equal(t, msg.Msg, decoded.Msg)
 		require.Equal(t, len(msg.Funds), len(decoded.Funds))
 		require.Equal(t, msg.Funds[0].Denom, decoded.Funds[0].Denom)

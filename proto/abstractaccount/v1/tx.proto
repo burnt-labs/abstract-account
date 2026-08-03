@@ -17,9 +17,6 @@ service Msg {
 
   // RegisterAccount registers a new AbstractAccount.
   rpc RegisterAccount(MsgRegisterAccount) returns (MsgRegisterAccountResponse);
-
-  // MigrateAccount migrates an AbstractAccount to the module-managed current implementation.
-  rpc MigrateAccount(MsgMigrateAccount) returns (MsgMigrateAccountResponse);
 }
 
 // ------------------------------- UpdateParams --------------------------------
@@ -44,9 +41,9 @@ message MsgRegisterAccount {
   // Sender is the actor who signs the message
   string sender  = 1;
 
-  // Code selection is owned by the module parameters. Field 2 previously held
-  // a caller-selected code_id and must never be reused.
-  reserved 2;
+  // CodeID selects the allowed implementation installed after deterministic
+  // bootstrap instantiation. It does not participate in address derivation.
+  uint64 code_id = 2 [(gogoproto.customname) = "CodeID"];
 
   // Msg is the JSON-encoded instantiate message for the contract
   bytes msg = 3 [
@@ -68,19 +65,4 @@ message MsgRegisterAccount {
 message MsgRegisterAccountResponse {
   string address = 1;
   bytes  data    = 2;
-}
-
-// ------------------------------- MigrateAccount -----------------------------
-
-// MsgMigrateAccount migrates the sender account to the current implementation
-// without exposing a Wasm code ID to the caller.
-message MsgMigrateAccount {
-  option (cosmos.msg.v1.signer) = "sender";
-
-  string sender = 1;
-}
-
-message MsgMigrateAccountResponse {
-  bool migrated = 1;
-  bytes data = 2;
 }

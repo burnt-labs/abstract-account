@@ -111,8 +111,8 @@ func (m *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
-// QueryAccountAddressRequest identifies an account namespace without exposing
-// a Wasm code ID or checksum to callers.
+// QueryAccountAddressRequest identifies an account namespace. Implementation
+// code IDs do not participate in this address lookup.
 type QueryAccountAddressRequest struct {
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
 	Salt   []byte `protobuf:"bytes,2,opt,name=salt,proto3" json:"salt,omitempty"`
@@ -272,8 +272,8 @@ const _ = grpc.SupportPackageIsVersion4
 type QueryClient interface {
 	// Params queries the module's parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// AccountAddress returns the authoritative registered address or predicts
-	// the canonical address using the module-managed bootstrap code.
+	// AccountAddress returns the registered address or predicts the stable
+	// address using the module-managed bootstrap code.
 	AccountAddress(ctx context.Context, in *QueryAccountAddressRequest, opts ...grpc.CallOption) (*QueryAccountAddressResponse, error)
 }
 
@@ -307,8 +307,8 @@ func (c *queryClient) AccountAddress(ctx context.Context, in *QueryAccountAddres
 type QueryServer interface {
 	// Params queries the module's parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// AccountAddress returns the authoritative registered address or predicts
-	// the canonical address using the module-managed bootstrap code.
+	// AccountAddress returns the registered address or predicts the stable
+	// address using the module-managed bootstrap code.
 	AccountAddress(context.Context, *QueryAccountAddressRequest) (*QueryAccountAddressResponse, error)
 }
 
