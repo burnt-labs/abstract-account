@@ -4,6 +4,7 @@
 package types_test
 
 import (
+	"strings"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -636,6 +637,25 @@ func (s *AbstractAccountTypesTestSuite) TestGenesisState() {
 		// Missing params must return an error rather than panic during chain init.
 		err = (&types.GenesisState{}).Validate()
 		s.Require().EqualError(err, "params cannot be nil")
+	})
+
+	s.Run("GenesisState rejects duplicate canonical sender and salt", func() {
+		sender := sdk.AccAddress("duplicate-sender").String()
+		genesis := types.DefaultGenesisState()
+		genesis.AccountAddresses = []*types.AccountAddress{
+			{
+				Sender:  sender,
+				Salt:    []byte("duplicate-salt"),
+				Address: sdk.AccAddress("first-address").String(),
+			},
+			{
+				Sender:  strings.ToUpper(sender),
+				Salt:    []byte("duplicate-salt"),
+				Address: sdk.AccAddress("second-address").String(),
+			},
+		}
+
+		s.Require().EqualError(genesis.Validate(), "duplicate account address registry entry")
 	})
 }
 

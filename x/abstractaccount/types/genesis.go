@@ -32,7 +32,8 @@ func (gs *GenesisState) Validate() error {
 		if entry == nil {
 			return errors.New("account address registry entry cannot be nil")
 		}
-		if _, err := sdk.AccAddressFromBech32(entry.Sender); err != nil {
+		sender, err := sdk.AccAddressFromBech32(entry.Sender)
+		if err != nil {
 			return fmt.Errorf("invalid account address registry sender: %w", err)
 		}
 		if _, err := sdk.AccAddressFromBech32(entry.Address); err != nil {
@@ -42,7 +43,7 @@ func (gs *GenesisState) Validate() error {
 			return fmt.Errorf("invalid account address registry salt: %w", err)
 		}
 
-		key := entry.Sender + "\x00" + string(entry.Salt)
+		key := string(sender) + "\x00" + string(entry.Salt)
 		if _, ok := seen[key]; ok {
 			return errors.New("duplicate account address registry entry")
 		}
