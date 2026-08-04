@@ -4,6 +4,7 @@
 package types_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -641,7 +642,15 @@ func (s *AbstractAccountTypesTestSuite) TestGenesisState() {
 
 	s.Run("GenesisState rejects duplicate canonical sender and salt", func() {
 		sender := sdk.AccAddress("duplicate-sender").String()
-		genesis := types.DefaultGenesisState()
+		params, err := types.NewParamsWithAddressDerivationHash(
+			true,
+			nil,
+			uint64(types.DefaultMaxGas),
+			uint64(types.DefaultMaxGas),
+			bytes.Repeat([]byte{1}, 32),
+		)
+		s.Require().NoError(err)
+		genesis := types.NewGenesisState(1, params)
 		genesis.AccountAddresses = []*types.AccountAddress{
 			{
 				Sender:  sender,
@@ -656,6 +665,47 @@ func (s *AbstractAccountTypesTestSuite) TestGenesisState() {
 		}
 
 		s.Require().EqualError(genesis.Validate(), "duplicate account address registry entry")
+	})
+
+	s.Run("GenesisState rejects registry without address derivation configuration", func() {
+		genesis := types.DefaultGenesisState()
+		genesis.AccountAddresses = []*types.AccountAddress{{
+			Sender:  sdk.AccAddress("existing-sender").String(),
+			Salt:    []byte("existing-salt"),
+			Address: sdk.AccAddress("existing-account").String(),
+		}}
+
+		s.Require().EqualError(
+			genesis.Validate(),
+			"account address registry requires configured address derivation",
+		)
+	})
+
+	s.Run("GenesisState duplicate key encoding is unambiguous", func() {
+		params, err := types.NewParamsWithAddressDerivationHash(
+			true,
+			nil,
+			uint64(types.DefaultMaxGas),
+			uint64(types.DefaultMaxGas),
+			bytes.Repeat([]byte{2}, 32),
+		)
+		s.Require().NoError(err)
+
+		genesis := types.NewGenesisState(1, params)
+		genesis.AccountAddresses = []*types.AccountAddress{
+			{
+				Sender:  sdk.AccAddress([]byte("A")).String(),
+				Salt:    []byte("P\x00S"),
+				Address: sdk.AccAddress("first-account").String(),
+			},
+			{
+				Sender:  sdk.AccAddress([]byte("A\x00P")).String(),
+				Salt:    []byte("S"),
+				Address: sdk.AccAddress("second-account").String(),
+			},
+		}
+
+		s.Require().NoError(genesis.Validate())
 	})
 }
 

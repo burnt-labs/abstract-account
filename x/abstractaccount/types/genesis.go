@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -26,9 +27,15 @@ func (gs *GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}
+	if len(gs.AccountAddresses) > 0 && !gs.Params.RegistrationConfigured() {
+		return errors.New("account address registry requires configured address derivation")
+	}
+	return validateAccountAddresses(gs.AccountAddresses)
+}
 
-	seen := make(map[string]struct{}, len(gs.AccountAddresses))
-	for _, entry := range gs.AccountAddresses {
+func validateAccountAddresses(entries []*AccountAddress) error {
+	seen := make(map[string]struct{}, len(entries))
+	for _, entry := range entries {
 		if entry == nil {
 			return errors.New("account address registry entry cannot be nil")
 		}
@@ -43,7 +50,11 @@ func (gs *GenesisState) Validate() error {
 			return fmt.Errorf("invalid account address registry salt: %w", err)
 		}
 
-		key := string(sender) + "\x00" + string(entry.Salt)
+		keyBytes := make([]byte, 8+len(sender)+len(entry.Salt))
+		binary.BigEndian.PutUint64(keyBytes[:8], uint64(len(sender)))
+		copy(keyBytes[8:], sender)
+		copy(keyBytes[8+len(sender):], entry.Salt)
+		key := string(keyBytes)
 		if _, ok := seen[key]; ok {
 			return errors.New("duplicate account address registry entry")
 		}
