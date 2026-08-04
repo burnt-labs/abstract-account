@@ -17,5 +17,5 @@ var (
 	ErrAccountAlreadyRegistered      = errors.Register(ModuleName, 14, "account namespace is already registered")
 	ErrRegistrationNotConfigured     = errors.Register(ModuleName, 16, "abstract account address derivation hash is not configured")
 	ErrInvalidAddressDerivationHash  = errors.Register(ModuleName, 17, "address derivation hash must be exactly 32 bytes")
-	ErrInvalidAccountAddressRegistry = errors.Register(ModuleName, 18, "account address registry must reference an abstract account")
+	ErrInvalidAccountAddressRegistry = errors.Register(ModuleName, 18, "invalid account address registry entry")
 )

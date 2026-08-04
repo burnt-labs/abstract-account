@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"testing"
 
 	storetypes "cosmossdk.io/store/types"
@@ -242,14 +243,25 @@ func TestGenesisRoundTrip(t *testing.T) {
 	app1 := simapptesting.MakeSimpleMockApp()
 	ctx1 := app1.NewContext(false)
 
-	originalParams := &types.Params{MaxGasBefore: 111111, MaxGasAfter: 222222}
+	originalParams, err := types.NewParamsWithAddressDerivationHash(
+		true,
+		nil,
+		111111,
+		222222,
+		bytes.Repeat([]byte{0xA5}, 32),
+	)
+	require.NoError(t, err)
 	originalNextAccountID := uint64(333333)
 	originalGs := types.NewGenesisState(originalNextAccountID, originalParams)
-	accountAddress := simapptesting.MakeRandomAddress()
+	sender := simapptesting.MakeRandomAddress()
+	salt := []byte("exported-salt")
+	require.NoError(t, app1.AbstractAccountKeeper.SetParams(ctx1, originalParams))
+	accountAddress, err := app1.AbstractAccountKeeper.PredictAccountAddress(ctx1, sender, salt)
+	require.NoError(t, err)
 	app1.AccountKeeper.SetAccount(ctx1, types.NewAbstractAccount(accountAddress.String(), 1, 0))
 	originalGs.AccountAddresses = []*types.AccountAddress{{
-		Sender:  simapptesting.MakeRandomAddress().String(),
-		Salt:    []byte("exported-salt"),
+		Sender:  sender.String(),
+		Salt:    salt,
 		Address: accountAddress.String(),
 	}}
 
@@ -296,7 +308,41 @@ func TestInitGenesisRejectsNonAbstractAccountMapping(t *testing.T) {
 	}}
 
 	require.PanicsWithError(t,
-		"genesis account address "+ordinaryAddress.String()+": account address registry must reference an abstract account",
+		"genesis account address "+ordinaryAddress.String()+": invalid account address registry entry",
+		func() { app.AbstractAccountKeeper.InitGenesis(ctx, gs) },
+	)
+}
+
+func TestInitGenesisRejectsAbstractAccountAtWrongDerivedAddress(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
+	params, err := types.NewParamsWithAddressDerivationHash(
+		true,
+		nil,
+		types.DefaultMaxGas,
+		types.DefaultMaxGas,
+		bytes.Repeat([]byte{0xB6}, 32),
+	)
+	require.NoError(t, err)
+
+	sender := simapptesting.MakeRandomAddress()
+	salt := []byte("wrong-namespace")
+	wrongAddress := simapptesting.MakeRandomAddress()
+	app.AccountKeeper.SetAccount(ctx, types.NewAbstractAccount(wrongAddress.String(), 1, 0))
+	require.NoError(t, app.AbstractAccountKeeper.SetParams(ctx, params))
+	predicted, err := app.AbstractAccountKeeper.PredictAccountAddress(ctx, sender, salt)
+	require.NoError(t, err)
+	require.NotEqual(t, wrongAddress.String(), predicted.String())
+
+	gs := types.NewGenesisState(1, params)
+	gs.AccountAddresses = []*types.AccountAddress{{
+		Sender:  sender.String(),
+		Salt:    salt,
+		Address: wrongAddress.String(),
+	}}
+
+	require.PanicsWithError(t,
+		"genesis account address "+wrongAddress.String()+" does not match derived address "+predicted.String()+": invalid account address registry entry",
 		func() { app.AbstractAccountKeeper.InitGenesis(ctx, gs) },
 	)
 }

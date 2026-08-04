@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"bytes"
+
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -23,6 +25,17 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) []abci.Vali
 		}
 		if !k.IsAbstractAccount(ctx, address) {
 			panic(types.ErrInvalidAccountAddressRegistry.Wrapf("genesis account address %s", entry.Address))
+		}
+		predicted, err := k.PredictAccountAddress(ctx, sender, entry.Salt)
+		if err != nil {
+			panic(err)
+		}
+		if !bytes.Equal(address, predicted) {
+			panic(types.ErrInvalidAccountAddressRegistry.Wrapf(
+				"genesis account address %s does not match derived address %s",
+				entry.Address,
+				predicted.String(),
+			))
 		}
 		k.SetAccountAddress(ctx, sender, entry.Salt, address)
 	}
