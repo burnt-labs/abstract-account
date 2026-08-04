@@ -233,7 +233,7 @@ func NewSimApp(
 		// we don't really need this strong permission (we don't need to store code
 		// or modify code access config) but wasm module doesn't seem to allow us
 		// to create our own authorization policy
-		wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper),
+		wasmkeeper.NewGovPermissionKeeperWithAddressHash(app.WasmKeeper),
 		&app.WasmKeeper,
 		Authority,
 	)

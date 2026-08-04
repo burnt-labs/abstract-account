@@ -22,7 +22,7 @@ func TestNewKeeper(t *testing.T) {
 	cdc := app.AppCodec()
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	transientStoreKey := storetypes.NewTransientStoreKey(types.TransientStoreKey)
-	contractKeeper := wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper)
+	contractKeeper := wasmkeeper.NewGovPermissionKeeperWithAddressHash(app.WasmKeeper)
 
 	t.Run("panic when AccountKeeper is nil", func(t *testing.T) {
 		require.Panics(t, func() {

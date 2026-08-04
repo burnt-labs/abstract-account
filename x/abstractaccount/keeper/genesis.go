@@ -21,6 +21,9 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) []abci.Vali
 		if err != nil {
 			panic(err)
 		}
+		if !k.IsAbstractAccount(ctx, address) {
+			panic(types.ErrInvalidAccountAddressRegistry.Wrapf("genesis account address %s", entry.Address))
+		}
 		k.SetAccountAddress(ctx, sender, entry.Salt, address)
 	}
 

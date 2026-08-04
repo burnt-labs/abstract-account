@@ -13,11 +13,8 @@ import (
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
-var (
-	// Use actual default parameters that match the mock app
-	mockParams = &types.Params{AllowAllCodeIDs: true, AllowedCodeIDs: nil, MaxGasBefore: 2000000, MaxGasAfter: 2000000}
-	// mockNextAccountID = uint64(1) // Use actual default next account ID
-)
+// Use actual default parameters that match the mock app
+var mockParams = &types.Params{AllowAllCodeIDs: true, AllowedCodeIDs: nil, MaxGasBefore: 2000000, MaxGasAfter: 2000000} // mockNextAccountID = uint64(1) // Use actual default next account ID
 
 func TestInitGenesis(t *testing.T) {
 	app := simapptesting.MakeSimpleMockApp()
@@ -62,7 +59,7 @@ func TestExportGenesisPanic(t *testing.T) {
 	cdc := app.AppCodec()
 	storeKey := storetypes.NewKVStoreKey("test-abstractaccount-panic")
 	transientStoreKey := storetypes.NewTransientStoreKey("test-abstractaccount-panic_transient")
-	contractKeeper := wasmkeeper.NewGovPermissionKeeper(app.WasmKeeper)
+	contractKeeper := wasmkeeper.NewGovPermissionKeeperWithAddressHash(app.WasmKeeper)
 
 	freshKeeper := abstractaccountkeeper.NewKeeper(cdc, storeKey, transientStoreKey, app.AccountKeeper, contractKeeper, &app.WasmKeeper, "authority")
 
@@ -248,10 +245,12 @@ func TestGenesisRoundTrip(t *testing.T) {
 	originalParams := &types.Params{MaxGasBefore: 111111, MaxGasAfter: 222222}
 	originalNextAccountID := uint64(333333)
 	originalGs := types.NewGenesisState(originalNextAccountID, originalParams)
+	accountAddress := simapptesting.MakeRandomAddress()
+	app1.AccountKeeper.SetAccount(ctx1, types.NewAbstractAccount(accountAddress.String(), 1, 0))
 	originalGs.AccountAddresses = []*types.AccountAddress{{
 		Sender:  simapptesting.MakeRandomAddress().String(),
 		Salt:    []byte("exported-salt"),
-		Address: simapptesting.MakeRandomAddress().String(),
+		Address: accountAddress.String(),
 	}}
 
 	// Initialize first app
@@ -264,6 +263,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 	// Second app: Initialize with exported values
 	app2 := simapptesting.MakeSimpleMockApp()
 	ctx2 := app2.NewContext(false)
+	app2.AccountKeeper.SetAccount(ctx2, types.NewAbstractAccount(accountAddress.String(), 1, 0))
 
 	result2 := app2.AbstractAccountKeeper.InitGenesis(ctx2, exportedGs)
 	require.Empty(t, result2)
@@ -280,6 +280,25 @@ func TestGenesisRoundTrip(t *testing.T) {
 	finalGs := app2.AbstractAccountKeeper.ExportGenesis(ctx2)
 	require.Equal(t, exportedGs, finalGs)
 	require.Equal(t, originalGs, finalGs)
+}
+
+func TestInitGenesisRejectsNonAbstractAccountMapping(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
+	ordinaryAddress := simapptesting.MakeRandomAddress()
+	app.AccountKeeper.SetAccount(ctx, app.AccountKeeper.NewAccountWithAddress(ctx, ordinaryAddress))
+
+	gs := types.NewGenesisState(1, mockParams)
+	gs.AccountAddresses = []*types.AccountAddress{{
+		Sender:  simapptesting.MakeRandomAddress().String(),
+		Salt:    []byte("invalid-registry-entry"),
+		Address: ordinaryAddress.String(),
+	}}
+
+	require.PanicsWithError(t,
+		"genesis account address "+ordinaryAddress.String()+": account address registry must reference an abstract account",
+		func() { app.AbstractAccountKeeper.InitGenesis(ctx, gs) },
+	)
 }
 
 // TestGetParamsErrorPaths tests error conditions in GetParams function
