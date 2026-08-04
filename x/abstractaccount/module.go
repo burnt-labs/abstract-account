@@ -1,6 +1,7 @@
 package abstractaccount
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -67,9 +68,10 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 	return gs.Validate()
 }
 
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {
-	// No gRPC gateway routes to register for this module
-	var _ runtime.ServeMux // Ensure the parameter is acknowledged
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
+		panic(err)
+	}
 }
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command {
@@ -99,10 +101,13 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 1, m.Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to migrate x/abstract-account from version 1 to 2: %v", err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 2, m.Migrate2to3); err != nil {
+		panic(fmt.Sprintf("failed to migrate x/abstract-account from version 2 to 3: %v", err))
+	}
 }
 
 func (AppModule) ConsensusVersion() uint64 {
-	return 2
+	return 3
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) []abci.ValidatorUpdate {

@@ -128,14 +128,14 @@ func TestRegisterCmdValidation(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "three arguments",
-			args:        []string{"1", "msg", "extra"},
-			expectError: true,
-		},
-		{
 			name:        "correct number of arguments",
 			args:        []string{"1", "{}"},
-			expectError: false, // Note: Will fail during execution due to missing client context, but args validation passes
+			expectError: false,
+		},
+		{
+			name:        "three arguments",
+			args:        []string{"1", "{}", "extra"},
+			expectError: true,
 		},
 	}
 
@@ -240,7 +240,7 @@ func TestRegisterCmdExecutionErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid syntax")
 
-	// Test with valid numeric code ID but no client context (will fail at GetClientTxContext)
+	// Test with a valid request but no client context.
 	cmd = registerCmd()
 	cmd.SetArgs([]string{"1", "{}"})
 	err = cmd.Execute()
@@ -409,7 +409,7 @@ func TestUpdateParamsCmdJSONError(t *testing.T) {
 // TestRegisterCmdValidateBasicError tests ValidateBasic error path
 func TestRegisterCmdValidateBasicError(t *testing.T) {
 	cmd := registerCmd()
-	cmd.SetArgs([]string{"0", "{}"}) // Zero code ID should fail ValidateBasic
+	cmd.SetArgs([]string{"0", "{}"})
 	cmd.Flags().Set("salt", "test-salt")
 	cmd.Flags().Set("funds", "")
 
@@ -470,7 +470,7 @@ func TestRegisterAccountValidateBasicError(t *testing.T) {
 	flagSet.String(flagSalt, "test-salt", "")
 	flagSet.String(flagFunds, "", "")
 
-	// Zero code ID should fail ValidateBasic
+	// Zero code ID should fail ValidateBasic.
 	err := RegisterAccount(clientCtx, flagSet, []string{"0", "{}"})
 	require.Error(t, err)
 }
@@ -537,7 +537,6 @@ func TestRegisterAccountValidParams(t *testing.T) {
 	args := []string{"1", "{}"}
 	require.Len(t, args, 2)
 
-	// Test code ID parsing
 	codeID, err := strconv.ParseUint(args[0], 10, 64)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), codeID)
@@ -678,11 +677,6 @@ func TestRegisterAccountFullErrorCoverage(t *testing.T) {
 	// Test argument count validation
 	args := []string{"1", "{}"}
 	require.Len(t, args, 2)
-
-	// Test code ID parsing
-	codeID, err := strconv.ParseUint(args[0], 10, 64)
-	require.NoError(t, err)
-	require.Greater(t, codeID, uint64(0))
 
 	// Test flag setup validation
 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)

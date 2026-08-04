@@ -18,7 +18,6 @@ func (m *MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Sender); err != nil {
 		return sdkerrors.ErrInvalidRequest.Wrap("invalid sender address")
 	}
-
 	return m.Params.Validate()
 }
 
@@ -36,7 +35,6 @@ func (m *MsgRegisterAccount) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Sender); err != nil {
 		return sdkerrors.ErrInvalidRequest.Wrap("invalid sender address")
 	}
-
 	if m.CodeID == 0 {
 		return sdkerrors.ErrInvalidRequest.Wrap("code id cannot be zero")
 	}
