@@ -9,20 +9,20 @@ import (
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
 )
 
-func TestMigrateStoreDisablesRegistrationUntilChainConfiguresBootstrap(t *testing.T) {
+func TestMigrateStoreDisablesRegistrationUntilChainConfiguresAddressHash(t *testing.T) {
 	app := simapptesting.MakeSimpleMockApp()
 	ctx := app.NewContext(false)
 
 	params, err := app.AbstractAccountKeeper.GetParams(ctx)
 	require.NoError(t, err)
-	params.BootstrapCodeID = 11
+	params.AddressDerivationHash = make([]byte, 32)
 	require.NoError(t, app.AbstractAccountKeeper.SetParams(ctx, params))
 
 	require.NoError(t, app.AbstractAccountKeeper.Migrator().Migrate2to3(ctx))
 
 	migrated, err := app.AbstractAccountKeeper.GetParams(ctx)
 	require.NoError(t, err)
-	require.Zero(t, migrated.BootstrapCodeID)
+	require.Empty(t, migrated.AddressDerivationHash)
 	require.False(t, migrated.RegistrationEnabled)
 	require.Equal(t, uint64(types.DefaultMaxGas), migrated.MaxGasBefore)
 }

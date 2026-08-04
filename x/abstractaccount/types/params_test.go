@@ -1,6 +1,8 @@
 package types_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +11,7 @@ import (
 )
 
 func TestValidateParams(t *testing.T) {
+	addressHash := bytes.Repeat([]byte{0xA5}, sha256.Size)
 	for _, tc := range []struct {
 		desc   string
 		params *types.Params
@@ -90,12 +93,12 @@ func TestValidateParams(t *testing.T) {
 			expErr: false,
 		},
 		{
-			desc: "bootstrap configured while registration remains paused",
+			desc: "address hash configured while registration remains paused",
 			params: &types.Params{
-				AllowAllCodeIDs: true,
-				MaxGasBefore:    types.DefaultMaxGas,
-				MaxGasAfter:     types.DefaultMaxGas,
-				BootstrapCodeID: 1,
+				AllowAllCodeIDs:       true,
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: addressHash,
 			},
 			expErr: false,
 		},
@@ -110,13 +113,24 @@ func TestValidateParams(t *testing.T) {
 			expErr: true,
 		},
 		{
-			desc: "valid enabled bootstrap registration",
+			desc: "invalid address hash length",
 			params: &types.Params{
-				AllowedCodeIDs:      []uint64{2},
-				MaxGasBefore:        types.DefaultMaxGas,
-				MaxGasAfter:         types.DefaultMaxGas,
-				BootstrapCodeID:     1,
-				RegistrationEnabled: true,
+				AllowedCodeIDs:        []uint64{2},
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: []byte("too-short"),
+				RegistrationEnabled:   false,
+			},
+			expErr: true,
+		},
+		{
+			desc: "valid enabled fixed-hash registration",
+			params: &types.Params{
+				AllowedCodeIDs:        []uint64{2},
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: addressHash,
+				RegistrationEnabled:   true,
 			},
 			expErr: false,
 		},
@@ -132,17 +146,20 @@ func TestValidateParams(t *testing.T) {
 }
 
 func TestRegistrationParams(t *testing.T) {
-	params, err := types.NewParamsWithBootstrapCodeID(
-		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, 1,
+	addressHash := bytes.Repeat([]byte{0xA5}, sha256.Size)
+	params, err := types.NewParamsWithAddressDerivationHash(
+		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, addressHash,
 	)
 	require.NoError(t, err)
 	require.True(t, params.RegistrationEnabled)
 	require.True(t, params.RegistrationConfigured())
-	require.Equal(t, uint64(1), params.BootstrapCodeID)
+	require.Equal(t, addressHash, params.AddressDerivationHash)
+	addressHash[0] = 0
+	require.Equal(t, byte(0xA5), params.AddressDerivationHash[0])
 	require.True(t, params.IsAllowed(2))
 
-	_, err = types.NewParamsWithBootstrapCodeID(
-		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, 0,
+	_, err = types.NewParamsWithAddressDerivationHash(
+		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, nil,
 	)
 	require.ErrorIs(t, err, types.ErrRegistrationNotConfigured)
 }

@@ -16,7 +16,7 @@ service Query {
   }
 
   // AccountAddress returns the registered address or predicts the stable
-  // address using the module-managed bootstrap code.
+  // address using the module-managed address derivation hash.
   rpc AccountAddress(QueryAccountAddressRequest) returns (QueryAccountAddressResponse) {
     option (cosmos.query.v1.module_query_safe) = true;
     option (google.api.http).get = "/abstractaccount/v1/account_address/{sender}";

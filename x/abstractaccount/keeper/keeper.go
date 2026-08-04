@@ -24,14 +24,14 @@ type Keeper struct {
 	storeKey          storetypes.StoreKey
 	transientStoreKey storetypes.StoreKey
 	ak                authkeeper.AccountKeeperI
-	ck                wasmtypes.ContractOpsKeeper
+	ck                wasmtypes.ContractOpsKeeperWithAddressHash
 	vk                wasmtypes.ViewKeeper
 	authority         string
 }
 
 func NewKeeper(
 	cdc codec.BinaryCodec, storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey,
-	ak authkeeper.AccountKeeperI, ck wasmtypes.ContractOpsKeeper, vk wasmtypes.ViewKeeper,
+	ak authkeeper.AccountKeeperI, ck wasmtypes.ContractOpsKeeperWithAddressHash, vk wasmtypes.ViewKeeper,
 	authority string,
 ) Keeper {
 	if ak == nil {
@@ -61,7 +61,7 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }
 
-func (k Keeper) ContractKeeper() wasmtypes.ContractOpsKeeper {
+func (k Keeper) ContractKeeper() wasmtypes.ContractOpsKeeperWithAddressHash {
 	return k.ck
 }
 
@@ -84,10 +84,10 @@ func (k Keeper) GetParams(ctx sdk.Context) (*types.Params, error) {
 }
 
 // SetParams validates and stores intrinsically valid parameters. It does not
-// enforce current-state invariants such as bootstrap immutability or Wasm code
-// existence: genesis and chain upgrade handlers are trusted bootstrap paths
-// that may need to initialize those values. Runtime governance updates must go
-// through MsgUpdateParams, which enforces both invariants.
+// enforce the current-state invariant that the address derivation hash is
+// immutable after configuration. Genesis and chain upgrade handlers are
+// trusted initialization paths. Runtime governance updates must go through
+// MsgUpdateParams, which enforces immutability.
 func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
 	store := ctx.KVStore(k.storeKey)
 
@@ -175,12 +175,7 @@ func (k Keeper) PredictAccountAddress(ctx sdk.Context, sender sdk.AccAddress, sa
 		return nil, err
 	}
 
-	codeInfo := k.vk.GetCodeInfo(ctx, params.BootstrapCodeID)
-	if codeInfo == nil {
-		return nil, types.ErrCodeIDNotFound.Wrapf("bootstrap code ID %d", params.BootstrapCodeID)
-	}
-
-	return wasmkeeper.BuildContractAddressPredictable(codeInfo.CodeHash, sender, salt, nil), nil
+	return wasmkeeper.BuildContractAddressPredictable(params.AddressDerivationHash, sender, salt, nil), nil
 }
 
 func (k Keeper) IsAbstractAccount(ctx sdk.Context, address sdk.AccAddress) bool {

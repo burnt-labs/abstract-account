@@ -31,18 +31,18 @@ message Params {
   // Must be greater than zero.
   uint64 max_gas_after = 4;
 
-  // BootstrapCodeID is the immutable Wasm code ID used by Instantiate2 to
-  // derive every new account address. The caller-selected registration code
-  // ID is installed atomically after bootstrap instantiation and does not
-  // affect the address. A zero value leaves registration unconfigured.
-  uint64 bootstrap_code_id = 5 [(gogoproto.customname) = "BootstrapCodeID"];
-
-  // Field 6 was implementation_code_id in an earlier public revision and must
-  // not be reused.
-  reserved 6;
+  // Fields 5 and 6 were bootstrap_code_id and implementation_code_id in
+  // earlier public revisions and must not be reused.
+  reserved 5, 6;
 
   // RegistrationEnabled controls whether new abstract accounts may be
   // registered. Governance can pause registration without changing the
-  // immutable bootstrap address namespace or blocking address queries.
+  // immutable address namespace or blocking address queries.
   bool registration_enabled = 7;
+
+  // AddressDerivationHash is the immutable 32-byte namespace used only to
+  // derive predictable AbstractAccount addresses. The caller-selected code ID
+  // is instantiated directly and does not participate in address derivation.
+  // An empty value leaves registration unconfigured.
+  bytes address_derivation_hash = 8 [(gogoproto.customname) = "AddressDerivationHash"];
 }

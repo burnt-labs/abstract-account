@@ -3,71 +3,61 @@
 ## Outcome
 
 Make `x/abstractaccount` the authority for stable address derivation and
-`(sender, salt)` uniqueness while retaining caller-selected, allowlisted account
+`(sender, salt)` uniqueness while retaining direct, caller-selected account
 implementations.
+
+## Wasm boundary
+
+- Add a keeper-only `Instantiate2WithAddressHash` extension in the XION Wasmd
+  fork.
+- Keep the public `Instantiate2` message and behavior unchanged.
+- Reuse the existing instantiation pipeline, authorization policy, storage, and
+  events; replace only the checksum input to predictable address derivation.
+- Require an exact 32-byte address hash.
 
 ## Module contract
 
-- Add an immutable `bootstrap_code_id` parameter.
-- Add an independent `registration_enabled` parameter so governance can pause
-  new registrations without changing the stable namespace or blocking queries.
-- Permit `bootstrap_code_id` to transition from zero to a configured value
-  once, then make it immutable.
-- Instantiate with `bootstrap_code_id`, migrate with `{}` to
-  the caller-selected, allowlisted `code_id` when the two differ, then make the
-  contract its own admin and register it as an abstract account in one
-  transaction.
-- Retain `code_id` in `MsgRegisterAccount` as the requested final
-  implementation. It does not affect the address.
-- Store `(sender, salt) -> account address` for every new registration and
-  reject duplicate registrations atomically.
-- Add `AccountAddress(sender, salt)` query. It returns a stored address when
-  registered and otherwise predicts from the bootstrap code checksum held by
-  the Wasm module.
-- Treat a historical abstract account already present at the canonical
-  predicted address as registered even when it predates the registry.
-- Require the bootstrap to accept supported registration messages and produce
-  storage compatible with allowed target implementations; targets must accept
-  the empty `{}` migration message.
+- Add immutable `address_derivation_hash` and independent
+  `registration_enabled` parameters.
+- Retain `MsgRegisterAccount.code_id` as the caller-selected implementation and
+  enforce the existing allowlist before instantiation.
+- Directly instantiate that code at the address derived from
+  `(address_derivation_hash, sender, salt)`; do not bootstrap or migrate.
+- Store `(sender, salt) -> account address` and reject duplicates atomically.
+- Add `AccountAddress(sender, salt)` to return the stored address or predict the
+  fixed-hash address.
+- Recognize an abstract account already present at the predicted address even
+  when it predates the registry.
 
-## Responsibilities removed from applications and indexers
+## Consumer responsibilities
 
-After consumers adopt the new message/query, the module replaces:
-
-- local checksum address derivation in AA-API and xion.js;
-- Numia point lookups used to decide whether registration is safe;
-- RPC scans over current and legacy checksum-derived addresses;
-- KV-based correctness locks for duplicate registration (KV may remain only as
-  an optional request-coalescing optimization).
-
-Indexers remain useful for history, analytics, and discovery by authenticator,
-but are no longer in the account-creation correctness path.
+After adoption, applications should replace local checksum derivation and
+indexer-based existence checks with the module query. Indexers remain useful for
+history, analytics, and authenticator discovery, but not registration
+correctness.
 
 ## Upgrade boundary
 
-The v3 store migration adds the bootstrap as zero and leaves
-`registration_enabled` false because a reusable module cannot infer the
-chain-specific address anchor. The XION chain upgrade must set the bootstrap ID
-before explicitly enabling registration. The audited mainnet accounts must all
-resolve at the selected bootstrap checksum. Any
-noncanonical historical account would need an explicit chain-specific backfill;
-testnet-only historical duplicates do not constrain the mainnet rollout.
+The v3 store migration leaves the hash empty and registration disabled. The
+XION upgrade must configure an audited chain-specific hash and explicitly enable
+registration. Existing deployed accounts and ordinary Wasm migrations are
+unchanged.
 
 ## Verification
 
-- Parameter validation and bootstrap immutability tests.
-- Address prediction, registered lookup, duplicate rejection, and historical
-  canonical-address recognition tests.
-- Atomic instantiate/migrate/admin/account registration tests.
-- v2-to-v3 migration and genesis round-trip tests.
-- CLI/protobuf compatibility tests and full repository test/coverage gates.
+- Wasmd tests proving two different code IDs derive the same address from the
+  same fixed hash, sender, and salt while instantiating the requested code.
+- Parameter validation and address-hash immutability tests.
+- Address prediction, registered lookup, duplicate rejection, direct
+  instantiation, atomic failure, and historical-address recognition tests.
+- Store migration, genesis round-trip, protobuf compatibility, and repository
+  test gates.
 
-## Security review
+## Security properties
 
-- Caller-selected final code IDs remain constrained by the existing allowlist.
-- Bootstrap-to-requested-code migration is synchronous and registration fails
-  atomically if it fails.
-- Authenticator verification remains address-bound downstream; AA-API must
-  obtain that address from `AccountAddress` before credential construction.
-- Signer state remains transient; only the canonical `(sender, salt) -> address` registry is persistent.
-- Code selection remains with callers while uniqueness is enforced atomically on chain.
+- Only the abstract-account keeper can use the fixed-hash instantiation path.
+- Caller-selected code IDs remain constrained by the existing allowlist.
+- The immutable hash prevents governance from silently creating a second
+  address namespace after activation.
+- Registration succeeds or fails atomically without a bootstrap compatibility
+  or migration-message dependency.

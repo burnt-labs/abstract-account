@@ -1,7 +1,9 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -32,14 +34,15 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 	if err != nil {
 		return nil, err
 	}
-	if currentParams.BootstrapCodeID != 0 && req.Params.BootstrapCodeID != currentParams.BootstrapCodeID {
-		return nil, types.ErrImmutableBootstrap.Wrapf(
-			"expected %d, found %d",
-			currentParams.BootstrapCodeID,
-			req.Params.BootstrapCodeID,
+	if currentParams.RegistrationConfigured() &&
+		!bytes.Equal(req.Params.AddressDerivationHash, currentParams.AddressDerivationHash) {
+		return nil, types.ErrImmutableAddressHash.Wrapf(
+			"expected %s, found %s",
+			hex.EncodeToString(currentParams.AddressDerivationHash),
+			hex.EncodeToString(req.Params.AddressDerivationHash),
 		)
 	}
-	if err := ms.validateRegistrationParams(ctx, req.Params); err != nil {
+	if err := req.Params.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -48,21 +51,6 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 	}
 
 	return &types.MsgUpdateParamsResponse{}, nil
-}
-
-func (ms msgServer) validateRegistrationParams(ctx sdk.Context, params *types.Params) error {
-	if err := params.Validate(); err != nil {
-		return err
-	}
-	if !params.RegistrationConfigured() {
-		return nil
-	}
-
-	if ms.k.vk.GetCodeInfo(ctx, params.BootstrapCodeID) == nil {
-		return types.ErrCodeIDNotFound.Wrapf("bootstrap code ID %d", params.BootstrapCodeID)
-	}
-
-	return nil
 }
 
 // ------------------------------ RegisterAccount ------------------------------
@@ -93,31 +81,22 @@ func (ms msgServer) instantiateAccount(
 	sender, predicted sdk.AccAddress,
 	req *types.MsgRegisterAccount,
 ) (sdk.AccAddress, []byte, error) {
-	contractAddr, data, err := ms.k.ck.Instantiate2(
+	contractAddr, data, err := ms.k.ck.Instantiate2WithAddressHash(
 		ctx,
-		params.BootstrapCodeID,
+		req.CodeID,
+		params.AddressDerivationHash,
 		sender,
 		sender,
 		req.Msg,
 		fmt.Sprintf("%s/%d", types.ModuleName, ms.k.GetAndIncrementNextAccountID(ctx)),
 		req.Funds,
 		req.Salt,
-		false,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !contractAddr.Equals(predicted) {
 		return nil, nil, fmt.Errorf("instantiated account address %s does not match predicted address %s", contractAddr, predicted)
-	}
-
-	// The fixed bootstrap controls only the address. The caller-selected,
-	// allowlisted implementation remains the final code for this account.
-	// XION account implementations use an empty MigrateMsg.
-	if req.CodeID != params.BootstrapCodeID {
-		if _, err = ms.k.ck.Migrate(ctx, contractAddr, sender, req.CodeID, []byte("{}")); err != nil {
-			return nil, nil, err
-		}
 	}
 
 	return contractAddr, data, nil
@@ -134,7 +113,7 @@ func (ms msgServer) validateRegistrationRequest(
 	if !params.IsAllowed(req.CodeID) {
 		return types.ErrNotAllowedCodeID.Wrapf("registration implementation code ID %d", req.CodeID)
 	}
-	if req.CodeID != params.BootstrapCodeID && ms.k.vk.GetCodeInfo(ctx, req.CodeID) == nil {
+	if ms.k.vk.GetCodeInfo(ctx, req.CodeID) == nil {
 		return types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", req.CodeID)
 	}
 
@@ -185,18 +164,18 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 	ms.k.Logger(ctx).Info(
 		"account registered",
 		types.AttributeKeyCreator, req.Sender,
-		types.AttributeKeyBootstrapCodeID, params.BootstrapCodeID,
+		types.AttributeKeyAddressDerivationHash, hex.EncodeToString(params.AddressDerivationHash),
 		types.AttributeKeyCodeID, req.CodeID,
 		types.AttributeKeyContractAddr, contractAddr.String(),
 		types.AttributeKeyAccountNumber, acc.GetAccountNumber(),
 	)
 
 	if err = ctx.EventManager().EmitTypedEvent(&types.EventAccountRegistered{
-		Creator:         req.Sender,
-		CodeID:          req.CodeID,
-		BootstrapCodeID: params.BootstrapCodeID,
-		ContractAddr:    contractAddr.String(),
-		AccountNumber:   acc.GetAccountNumber(),
+		Creator:               req.Sender,
+		CodeID:                req.CodeID,
+		AddressDerivationHash: params.AddressDerivationHash,
+		ContractAddr:          contractAddr.String(),
+		AccountNumber:         acc.GetAccountNumber(),
 	}); err != nil {
 		return nil, err
 	}

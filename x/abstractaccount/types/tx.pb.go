@@ -127,7 +127,7 @@ type MsgRegisterAccount struct {
 	// Sender is the actor who signs the message
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
 	// CodeID selects the allowed implementation installed after deterministic
-	// bootstrap instantiation. It does not participate in address derivation.
+	// direct instantiation. It does not participate in address derivation.
 	CodeID uint64 `protobuf:"varint,2,opt,name=code_id,json=codeId,proto3" json:"code_id,omitempty"`
 	// Msg is the JSON-encoded instantiate message for the contract
 	Msg github_com_CosmWasm_wasmd_x_wasm_types.RawContractMessage `protobuf:"bytes,3,opt,name=msg,proto3,casttype=github.com/CosmWasm/wasmd/x/wasm/types.RawContractMessage" json:"msg,omitempty"`

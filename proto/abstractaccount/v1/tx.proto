@@ -42,7 +42,7 @@ message MsgRegisterAccount {
   string sender  = 1;
 
   // CodeID selects the allowed implementation installed after deterministic
-  // bootstrap instantiation. It does not participate in address derivation.
+  // direct instantiation. It does not participate in address derivation.
   uint64 code_id = 2 [(gogoproto.customname) = "CodeID"];
 
   // Msg is the JSON-encoded instantiate message for the contract

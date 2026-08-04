@@ -12,5 +12,6 @@ message EventAccountRegistered {
   uint64 code_id       = 2 [(gogoproto.customname) = "CodeID"];
   string contract_addr = 3;
   uint64 account_number = 4;
-  uint64 bootstrap_code_id = 5 [(gogoproto.customname) = "BootstrapCodeID"];
+  reserved 5;
+  bytes address_derivation_hash = 6 [(gogoproto.customname) = "AddressDerivationHash"];
 }

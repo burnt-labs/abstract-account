@@ -273,7 +273,7 @@ type QueryClient interface {
 	// Params queries the module's parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// AccountAddress returns the registered address or predicts the stable
-	// address using the module-managed bootstrap code.
+	// address using the module-managed address derivation hash.
 	AccountAddress(ctx context.Context, in *QueryAccountAddressRequest, opts ...grpc.CallOption) (*QueryAccountAddressResponse, error)
 }
 
@@ -308,7 +308,7 @@ type QueryServer interface {
 	// Params queries the module's parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// AccountAddress returns the registered address or predicts the stable
-	// address using the module-managed bootstrap code.
+	// address using the module-managed address derivation hash.
 	AccountAddress(context.Context, *QueryAccountAddressRequest) (*QueryAccountAddressResponse, error)
 }
 

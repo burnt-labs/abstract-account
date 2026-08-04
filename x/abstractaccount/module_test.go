@@ -1,6 +1,8 @@
 package abstractaccount_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -186,7 +188,7 @@ func storeCodeAndRegisterAccount(
 	if err != nil {
 		return nil, err
 	}
-	params.BootstrapCodeID = codeID
+	params.AddressDerivationHash = bytes.Repeat([]byte{0xA5}, sha256.Size)
 	params.RegistrationEnabled = true
 	if err := k.SetParams(ctx, params); err != nil {
 		return nil, err

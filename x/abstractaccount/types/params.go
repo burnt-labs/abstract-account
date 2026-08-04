@@ -1,5 +1,10 @@
 package types
 
+import (
+	"bytes"
+	"crypto/sha256"
+)
+
 const DefaultMaxGas = 2_000_000
 
 func NewParams(allowAllCodeIDs bool, allowedCodeIDs []uint64, maxGasBefore, maxGasAfter uint64) (*Params, error) {
@@ -13,17 +18,18 @@ func NewParams(allowAllCodeIDs bool, allowedCodeIDs []uint64, maxGasBefore, maxG
 	return params, params.Validate()
 }
 
-func NewParamsWithBootstrapCodeID(
+func NewParamsWithAddressDerivationHash(
 	allowAllCodeIDs bool,
 	allowedCodeIDs []uint64,
-	maxGasBefore, maxGasAfter, bootstrapCodeID uint64,
+	maxGasBefore, maxGasAfter uint64,
+	addressDerivationHash []byte,
 ) (*Params, error) {
 	params, err := NewParams(allowAllCodeIDs, allowedCodeIDs, maxGasBefore, maxGasAfter)
 	if err != nil {
 		return nil, err
 	}
 
-	params.BootstrapCodeID = bootstrapCodeID
+	params.AddressDerivationHash = bytes.Clone(addressDerivationHash)
 	params.RegistrationEnabled = true
 
 	return params, params.Validate()
@@ -67,6 +73,9 @@ func (p *Params) Validate() error {
 }
 
 func (p *Params) validateRegistration() error {
+	if len(p.AddressDerivationHash) != 0 && len(p.AddressDerivationHash) != sha256.Size {
+		return ErrInvalidAddressDerivationHash
+	}
 	if p.RegistrationEnabled && !p.RegistrationConfigured() {
 		return ErrRegistrationNotConfigured
 	}
@@ -75,7 +84,7 @@ func (p *Params) validateRegistration() error {
 }
 
 func (p *Params) RegistrationConfigured() bool {
-	return p.BootstrapCodeID != 0
+	return len(p.AddressDerivationHash) == sha256.Size
 }
 
 // IsAllowed returns whether a code ID is allowed as a registration
