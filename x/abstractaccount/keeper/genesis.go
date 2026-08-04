@@ -37,6 +37,12 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) []abci.Vali
 				predicted.String(),
 			))
 		}
+		if !k.vk.HasContractInfo(ctx, address) {
+			panic(types.ErrInvalidAccountAddressRegistry.Wrapf(
+				"genesis account address %s has no Wasm contract",
+				entry.Address,
+			))
+		}
 		k.SetAccountAddress(ctx, sender, entry.Salt, address)
 	}
 

@@ -3,12 +3,15 @@ package keeper_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	storetypes "cosmossdk.io/store/types"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	abci "github.com/cometbft/cometbft/abci/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/burnt-labs/abstract-account/simapp"
 	simapptesting "github.com/burnt-labs/abstract-account/simapp/testing"
 	abstractaccountkeeper "github.com/burnt-labs/abstract-account/x/abstractaccount/keeper"
 	"github.com/burnt-labs/abstract-account/x/abstractaccount/types"
@@ -241,7 +244,7 @@ func TestExportGenesisErrorHandling(t *testing.T) {
 func TestGenesisRoundTrip(t *testing.T) {
 	// First app: Initialize with specific values
 	app1 := simapptesting.MakeSimpleMockApp()
-	ctx1 := app1.NewContext(false)
+	ctx1 := app1.NewContext(false).WithBlockTime(time.Now())
 
 	originalParams, err := types.NewParamsWithAddressDerivationHash(
 		true,
@@ -258,7 +261,8 @@ func TestGenesisRoundTrip(t *testing.T) {
 	require.NoError(t, app1.AbstractAccountKeeper.SetParams(ctx1, originalParams))
 	accountAddress, err := app1.AbstractAccountKeeper.PredictAccountAddress(ctx1, sender, salt)
 	require.NoError(t, err)
-	app1.AccountKeeper.SetAccount(ctx1, types.NewAbstractAccount(accountAddress.String(), 1, 0))
+	installedAddress := installAbstractAccountContract(t, app1, ctx1, originalParams.AddressDerivationHash, sender, salt)
+	require.Equal(t, accountAddress, installedAddress)
 	originalGs.AccountAddresses = []*types.AccountAddress{{
 		Sender:  sender.String(),
 		Salt:    salt,
@@ -274,8 +278,9 @@ func TestGenesisRoundTrip(t *testing.T) {
 
 	// Second app: Initialize with exported values
 	app2 := simapptesting.MakeSimpleMockApp()
-	ctx2 := app2.NewContext(false)
-	app2.AccountKeeper.SetAccount(ctx2, types.NewAbstractAccount(accountAddress.String(), 1, 0))
+	ctx2 := app2.NewContext(false).WithBlockTime(time.Now())
+	installedAddress = installAbstractAccountContract(t, app2, ctx2, originalParams.AddressDerivationHash, sender, salt)
+	require.Equal(t, accountAddress, installedAddress)
 
 	result2 := app2.AbstractAccountKeeper.InitGenesis(ctx2, exportedGs)
 	require.Empty(t, result2)
@@ -345,6 +350,70 @@ func TestInitGenesisRejectsAbstractAccountAtWrongDerivedAddress(t *testing.T) {
 		"genesis account address "+wrongAddress.String()+" does not match derived address "+predicted.String()+": invalid account address registry entry",
 		func() { app.AbstractAccountKeeper.InitGenesis(ctx, gs) },
 	)
+}
+
+func TestInitGenesisRejectsAbstractAccountWithoutWasmContract(t *testing.T) {
+	app := simapptesting.MakeSimpleMockApp()
+	ctx := app.NewContext(false)
+	params, err := types.NewParamsWithAddressDerivationHash(
+		true,
+		nil,
+		types.DefaultMaxGas,
+		types.DefaultMaxGas,
+		bytes.Repeat([]byte{0xC7}, 32),
+	)
+	require.NoError(t, err)
+
+	sender := simapptesting.MakeRandomAddress()
+	salt := []byte("missing-wasm-contract")
+	require.NoError(t, app.AbstractAccountKeeper.SetParams(ctx, params))
+	address, err := app.AbstractAccountKeeper.PredictAccountAddress(ctx, sender, salt)
+	require.NoError(t, err)
+	app.AccountKeeper.SetAccount(ctx, types.NewAbstractAccount(address.String(), 1, 0))
+	require.False(t, app.WasmKeeper.HasContractInfo(ctx, address))
+
+	gs := types.NewGenesisState(1, params)
+	gs.AccountAddresses = []*types.AccountAddress{{
+		Sender:  sender.String(),
+		Salt:    salt,
+		Address: address.String(),
+	}}
+
+	require.PanicsWithError(t,
+		"genesis account address "+address.String()+" has no Wasm contract: invalid account address registry entry",
+		func() { app.AbstractAccountKeeper.InitGenesis(ctx, gs) },
+	)
+}
+
+func installAbstractAccountContract(
+	t *testing.T,
+	app *simapp.SimApp,
+	ctx sdk.Context,
+	addressHash []byte,
+	sender sdk.AccAddress,
+	salt []byte,
+) sdk.AccAddress {
+	t.Helper()
+
+	codeID, err := storeCode(ctx, app.AbstractAccountKeeper.ContractKeeper())
+	require.NoError(t, err)
+	address, _, err := app.AbstractAccountKeeper.ContractKeeper().Instantiate2WithAddressHash(
+		ctx,
+		codeID,
+		addressHash,
+		sender,
+		sender,
+		mustMarshalAccountInitMsg(t),
+		"genesis account",
+		nil,
+		salt,
+	)
+	require.NoError(t, err)
+	baseAccount := app.AccountKeeper.GetAccount(ctx, address)
+	require.NotNil(t, baseAccount)
+	app.AccountKeeper.SetAccount(ctx, types.NewAbstractAccountFromAccount(baseAccount))
+
+	return address
 }
 
 // TestGetParamsErrorPaths tests error conditions in GetParams function
