@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
 
 use absacc::AccountSudoMsg;
@@ -47,7 +47,7 @@ pub fn execute(_: DepsMut, _: Env, _: MessageInfo, _: Empty) -> ContractResult<R
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query::config(deps.storage)?),
-        QueryMsg::PreviousCount {} => to_binary(&query::previous_count(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&query::config(deps.storage)?),
+        QueryMsg::PreviousCount {} => to_json_binary(&query::previous_count(deps.storage)?),
     }
 }

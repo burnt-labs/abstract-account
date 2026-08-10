@@ -20,6 +20,7 @@ pub struct MsgRegisterAccount {
     pub salt: Vec<u8>,
 }
 
+#[allow(deprecated)]
 impl From<MsgRegisterAccount> for CosmosMsg {
     fn from(msg: MsgRegisterAccount) -> Self {
         CosmosMsg::Stargate {
