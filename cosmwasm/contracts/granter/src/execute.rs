@@ -1,4 +1,4 @@
-use cosmwasm_std::{Binary, Deps, Response, Storage, DepsMut, Env, MessageInfo, BlockInfo, from_binary};
+use cosmwasm_std::{from_json, Binary, BlockInfo, Deps, DepsMut, Env, MessageInfo, Response, Storage};
 use cw_utils::Expiration;
 
 use absacc::Any;
@@ -26,7 +26,7 @@ pub fn before_tx(
     let pubkey = PUBKEY.load(deps.storage)?;
 
     let cred_bytes = cred_bytes.ok_or(ContractError::CredentialNotFound)?;
-    let credential: Credential = from_binary(cred_bytes)?;
+    let credential: Credential = from_json(cred_bytes)?;
 
     let signer_is_self = credential.pubkey == pubkey;
 

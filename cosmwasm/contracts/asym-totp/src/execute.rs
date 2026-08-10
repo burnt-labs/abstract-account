@@ -1,5 +1,5 @@
 use account_base::{error::ContractError as BaseError, execute::sha256};
-use cosmwasm_std::{from_binary, to_binary, Binary, DepsMut, Env, Response};
+use cosmwasm_std::{from_json, to_json_binary, Binary, DepsMut, Env, Response};
 
 use crate::{
     error::{ContractError, ContractResult},
@@ -40,7 +40,7 @@ pub fn before_tx(
         account: env.contract.address.into(),
         count,
     };
-    let sign_bytes = to_binary(&sign_doc)?;
+    let sign_bytes = to_json_binary(&sign_doc)?;
     let sign_bytes_hash = sha256(&sign_bytes);
 
     // verify signautre and OTP
@@ -48,7 +48,7 @@ pub fn before_tx(
     if !simulate {
         // deserialize credential bytes
         let cred_bytes = cred_bytes.ok_or(BaseError::SignatureNotFound)?;
-        let cred: Credential = from_binary(cred_bytes)?;
+        let cred: Credential = from_json(cred_bytes)?;
 
         if !deps.api.secp256k1_verify(&tx_bytes_hash, &cred.signature, &cfg.pubkey)? {
             return Err(BaseError::InvalidSignature.into());
