@@ -1,6 +1,8 @@
 package types_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +11,7 @@ import (
 )
 
 func TestValidateParams(t *testing.T) {
+	addressHash := bytes.Repeat([]byte{0xA5}, sha256.Size)
 	for _, tc := range []struct {
 		desc   string
 		params *types.Params
@@ -89,6 +92,48 @@ func TestValidateParams(t *testing.T) {
 			},
 			expErr: false,
 		},
+		{
+			desc: "address hash configured while registration remains paused",
+			params: &types.Params{
+				AllowAllCodeIDs:       true,
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: addressHash,
+			},
+			expErr: false,
+		},
+		{
+			desc: "registration enabled before code IDs are configured",
+			params: &types.Params{
+				AllowAllCodeIDs:     true,
+				MaxGasBefore:        types.DefaultMaxGas,
+				MaxGasAfter:         types.DefaultMaxGas,
+				RegistrationEnabled: true,
+			},
+			expErr: true,
+		},
+		{
+			desc: "invalid address hash length",
+			params: &types.Params{
+				AllowedCodeIDs:        []uint64{2},
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: []byte("too-short"),
+				RegistrationEnabled:   false,
+			},
+			expErr: true,
+		},
+		{
+			desc: "valid enabled fixed-hash registration",
+			params: &types.Params{
+				AllowedCodeIDs:        []uint64{2},
+				MaxGasBefore:          types.DefaultMaxGas,
+				MaxGasAfter:           types.DefaultMaxGas,
+				AddressDerivationHash: addressHash,
+				RegistrationEnabled:   true,
+			},
+			expErr: false,
+		},
 	} {
 		err := tc.params.Validate()
 
@@ -98,6 +143,25 @@ func TestValidateParams(t *testing.T) {
 			require.NoError(t, err, tc.desc)
 		}
 	}
+}
+
+func TestRegistrationParams(t *testing.T) {
+	addressHash := bytes.Repeat([]byte{0xA5}, sha256.Size)
+	params, err := types.NewParamsWithAddressDerivationHash(
+		false, []uint64{2}, types.DefaultMaxGas, types.DefaultMaxGas, addressHash,
+	)
+	require.NoError(t, err)
+	require.True(t, params.RegistrationEnabled)
+	require.True(t, params.RegistrationConfigured())
+	require.Equal(t, addressHash, params.AddressDerivationHash)
+	addressHash[0] = 0
+	require.Equal(t, byte(0xA5), params.AddressDerivationHash[0])
+	require.True(t, params.IsAllowed(2))
+
+	_, err = types.NewParamsWithAddressDerivationHash(
+		false, []uint64{1}, types.DefaultMaxGas, types.DefaultMaxGas, nil,
+	)
+	require.ErrorIs(t, err, types.ErrRegistrationNotConfigured)
 }
 
 func TestDeterminedAllowedCodeID(t *testing.T) {

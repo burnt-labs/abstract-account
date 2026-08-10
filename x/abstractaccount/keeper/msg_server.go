@@ -1,7 +1,9 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -28,6 +30,22 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 		return nil, sdkerrors.ErrUnauthorized.Wrapf("sender is not authority: expect %s, found %s", ms.k.authority, req.Sender)
 	}
 
+	currentParams, err := ms.k.GetParams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if currentParams.RegistrationConfigured() &&
+		!bytes.Equal(req.Params.AddressDerivationHash, currentParams.AddressDerivationHash) {
+		return nil, types.ErrImmutableAddressHash.Wrapf(
+			"expected %s, found %s",
+			hex.EncodeToString(currentParams.AddressDerivationHash),
+			hex.EncodeToString(req.Params.AddressDerivationHash),
+		)
+	}
+	if err := req.Params.Validate(); err != nil {
+		return nil, err
+	}
+
 	if err := ms.k.SetParams(ctx, req.Params); err != nil {
 		return nil, err
 	}
@@ -37,6 +55,71 @@ func (ms msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePara
 
 // ------------------------------ RegisterAccount ------------------------------
 
+func (ms msgServer) ensureAccountNamespaceAvailable(
+	ctx sdk.Context,
+	sender sdk.AccAddress,
+	salt []byte,
+) (sdk.AccAddress, error) {
+	if address, found := ms.k.GetAccountAddress(ctx, sender, salt); found {
+		return nil, types.ErrAccountAlreadyRegistered.Wrap(address.String())
+	}
+
+	predicted, err := ms.k.PredictAccountAddress(ctx, sender, salt)
+	if err != nil {
+		return nil, err
+	}
+	if ms.k.IsAbstractAccount(ctx, predicted) {
+		return nil, types.ErrAccountAlreadyRegistered.Wrap(predicted.String())
+	}
+
+	return predicted, nil
+}
+
+func (ms msgServer) instantiateAccount(
+	ctx sdk.Context,
+	params *types.Params,
+	sender, predicted sdk.AccAddress,
+	req *types.MsgRegisterAccount,
+) (sdk.AccAddress, []byte, error) {
+	contractAddr, data, err := ms.k.ck.Instantiate2WithAddressHash(
+		ctx,
+		req.CodeID,
+		params.AddressDerivationHash,
+		sender,
+		sender,
+		req.Msg,
+		fmt.Sprintf("%s/%d", types.ModuleName, ms.k.GetAndIncrementNextAccountID(ctx)),
+		req.Funds,
+		req.Salt,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !contractAddr.Equals(predicted) {
+		return nil, nil, fmt.Errorf("instantiated account address %s does not match predicted address %s", contractAddr, predicted)
+	}
+
+	return contractAddr, data, nil
+}
+
+func (ms msgServer) validateRegistrationRequest(
+	ctx sdk.Context,
+	params *types.Params,
+	req *types.MsgRegisterAccount,
+) error {
+	if !params.RegistrationEnabled {
+		return types.ErrRegistrationDisabled
+	}
+	if !params.IsAllowed(req.CodeID) {
+		return types.ErrNotAllowedCodeID.Wrapf("registration implementation code ID %d", req.CodeID)
+	}
+	if ms.k.vk.GetCodeInfo(ctx, req.CodeID) == nil {
+		return types.ErrCodeIDNotFound.Wrapf("implementation code ID %d", req.CodeID)
+	}
+
+	return nil
+}
+
 func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegisterAccount) (*types.MsgRegisterAccountResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -45,30 +128,20 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 		return nil, err
 	}
 
-	if !params.IsAllowed(req.CodeID) {
-		return nil, types.ErrNotAllowedCodeID
+	if err := ms.validateRegistrationRequest(ctx, params, req); err != nil {
+		return nil, err
 	}
 
 	senderAddr, err := sdk.AccAddressFromBech32(req.Sender)
 	if err != nil {
 		return nil, err
 	}
+	predictedAddr, err := ms.ensureAccountNamespaceAvailable(ctx, senderAddr, req.Salt)
+	if err != nil {
+		return nil, err
+	}
 
-	contractAddr, data, err := ms.k.ck.Instantiate2(
-		ctx,
-		req.CodeID,
-		senderAddr,
-		senderAddr,
-		req.Msg,
-		fmt.Sprintf("%s/%d", types.ModuleName, ms.k.GetAndIncrementNextAccountID(ctx)),
-		req.Funds,
-		req.Salt,
-		// we set fix_msg to false because there simply isn't any good reason
-		// otherwise, given that we already have full control over the address by
-		// providing a salt. read more:
-		// https://medium.com/cosmwasm/dev-note-3-limitations-of-instantiate2-and-how-to-deal-with-them-a3f946874230
-		false,
-	)
+	contractAddr, data, err := ms.instantiateAccount(ctx, params, senderAddr, predictedAddr, req)
 	if err != nil {
 		return nil, err
 	}
@@ -86,20 +159,23 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, req *types.MsgRegiste
 
 	// we overwrite this BaseAccount with our AbstractAccount
 	ms.k.ak.SetAccount(ctx, types.NewAbstractAccountFromAccount(acc))
+	ms.k.SetAccountAddress(ctx, senderAddr, req.Salt, contractAddr)
 
 	ms.k.Logger(ctx).Info(
 		"account registered",
 		types.AttributeKeyCreator, req.Sender,
+		types.AttributeKeyAddressDerivationHash, hex.EncodeToString(params.AddressDerivationHash),
 		types.AttributeKeyCodeID, req.CodeID,
 		types.AttributeKeyContractAddr, contractAddr.String(),
 		types.AttributeKeyAccountNumber, acc.GetAccountNumber(),
 	)
 
 	if err = ctx.EventManager().EmitTypedEvent(&types.EventAccountRegistered{
-		Creator:       req.Sender,
-		CodeID:        req.CodeID,
-		ContractAddr:  contractAddr.String(),
-		AccountNumber: acc.GetAccountNumber(),
+		Creator:               req.Sender,
+		CodeID:                req.CodeID,
+		AddressDerivationHash: params.AddressDerivationHash,
+		ContractAddr:          contractAddr.String(),
+		AccountNumber:         acc.GetAccountNumber(),
 	}); err != nil {
 		return nil, err
 	}

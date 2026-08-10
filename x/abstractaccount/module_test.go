@@ -1,6 +1,8 @@
 package abstractaccount_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -182,6 +184,15 @@ func storeCodeAndRegisterAccount(
 	if err != nil {
 		return nil, err
 	}
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	params.AddressDerivationHash = bytes.Repeat([]byte{0xA5}, sha256.Size)
+	params.RegistrationEnabled = true
+	if err := k.SetParams(ctx, params); err != nil {
+		return nil, err
+	}
 
 	// prepare the contract instantiate msg
 	msgBytes, err := json.Marshal(msg)
@@ -255,7 +266,7 @@ func TestAppModuleBasic(t *testing.T) {
 
 	// Test RegisterGRPCGatewayRoutes
 	ctx := client.Context{}
-	mux := &runtime.ServeMux{}
+	mux := runtime.NewServeMux()
 	moduleBasic.RegisterGRPCGatewayRoutes(ctx, mux)
 
 	// Test GetTxCmd
@@ -279,7 +290,7 @@ func TestAppModule(t *testing.T) {
 
 	// Test ConsensusVersion
 	version := appModule.ConsensusVersion()
-	require.Equal(t, uint64(2), version)
+	require.Equal(t, uint64(3), version)
 
 	// Test InitGenesis with valid genesis
 	jsonCodec := app.AppCodec()

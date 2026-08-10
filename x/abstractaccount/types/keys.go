@@ -25,4 +25,8 @@ var (
 	// AbstractAccount, we store its address here. This way, in the PostHandler,
 	// we know whether to call the after_tx method.
 	KeySignerAddress = []byte{0x02}
+
+	// KeyAccountAddressPrefix stores the authoritative mapping from a
+	// length-prefixed sender followed by the salt to an AbstractAccount address.
+	KeyAccountAddressPrefix = []byte{0x03}
 )

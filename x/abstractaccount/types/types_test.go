@@ -4,6 +4,8 @@
 package types_test
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -387,15 +389,12 @@ func (s *AbstractAccountTypesTestSuite) TestTransactionValidation() {
 		s.Require().Error(err)
 		s.Require().Contains(err.Error(), "invalid sender address")
 
-		// Invalid code ID (zero)
-		zeroCodeMsg := &types.MsgRegisterAccount{
+		zeroCodeIDMsg := &types.MsgRegisterAccount{
 			Sender: testAddr.String(),
-			CodeID: 0,
 			Msg:    []byte(`{}`),
-			Funds:  nil,
 			Salt:   []byte("salt"),
 		}
-		err = zeroCodeMsg.ValidateBasic()
+		err = zeroCodeIDMsg.ValidateBasic()
 		s.Require().Error(err)
 		s.Require().Contains(err.Error(), "code id cannot be zero")
 
@@ -635,6 +634,78 @@ func (s *AbstractAccountTypesTestSuite) TestGenesisState() {
 		}
 		err = invalidGenesis.Validate()
 		s.Require().Error(err)
+
+		// Missing params must return an error rather than panic during chain init.
+		err = (&types.GenesisState{}).Validate()
+		s.Require().EqualError(err, "params cannot be nil")
+	})
+
+	s.Run("GenesisState rejects duplicate canonical sender and salt", func() {
+		sender := sdk.AccAddress("duplicate-sender").String()
+		params, err := types.NewParamsWithAddressDerivationHash(
+			true,
+			nil,
+			uint64(types.DefaultMaxGas),
+			uint64(types.DefaultMaxGas),
+			bytes.Repeat([]byte{1}, 32),
+		)
+		s.Require().NoError(err)
+		genesis := types.NewGenesisState(1, params)
+		genesis.AccountAddresses = []*types.AccountAddress{
+			{
+				Sender:  sender,
+				Salt:    []byte("duplicate-salt"),
+				Address: sdk.AccAddress("first-address").String(),
+			},
+			{
+				Sender:  strings.ToUpper(sender),
+				Salt:    []byte("duplicate-salt"),
+				Address: sdk.AccAddress("second-address").String(),
+			},
+		}
+
+		s.Require().EqualError(genesis.Validate(), "duplicate account address registry entry")
+	})
+
+	s.Run("GenesisState rejects registry without address derivation configuration", func() {
+		genesis := types.DefaultGenesisState()
+		genesis.AccountAddresses = []*types.AccountAddress{{
+			Sender:  sdk.AccAddress("existing-sender").String(),
+			Salt:    []byte("existing-salt"),
+			Address: sdk.AccAddress("existing-account").String(),
+		}}
+
+		s.Require().EqualError(
+			genesis.Validate(),
+			"account address registry requires configured address derivation",
+		)
+	})
+
+	s.Run("GenesisState duplicate key encoding is unambiguous", func() {
+		params, err := types.NewParamsWithAddressDerivationHash(
+			true,
+			nil,
+			uint64(types.DefaultMaxGas),
+			uint64(types.DefaultMaxGas),
+			bytes.Repeat([]byte{2}, 32),
+		)
+		s.Require().NoError(err)
+
+		genesis := types.NewGenesisState(1, params)
+		genesis.AccountAddresses = []*types.AccountAddress{
+			{
+				Sender:  sdk.AccAddress([]byte("A")).String(),
+				Salt:    []byte("P\x00S"),
+				Address: sdk.AccAddress("first-account").String(),
+			},
+			{
+				Sender:  sdk.AccAddress([]byte("A\x00P")).String(),
+				Salt:    []byte("S"),
+				Address: sdk.AccAddress("second-account").String(),
+			},
+		}
+
+		s.Require().NoError(genesis.Validate())
 	})
 }
 
@@ -887,7 +958,7 @@ func TestNewAnyFromProtoMsg_Standalone(t *testing.T) {
 		// Create a more complex message to test
 		msg := &types.MsgRegisterAccount{
 			Sender: "cosmos1example123456789",
-			CodeID: 42,
+			CodeID: 1,
 			Msg:    []byte(`{"instantiate": {"admin": "cosmos1admin"}}`),
 			Funds: []sdk.Coin{
 				sdk.NewInt64Coin("uatom", 1000000),

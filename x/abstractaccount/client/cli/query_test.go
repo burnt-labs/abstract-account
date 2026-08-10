@@ -24,12 +24,13 @@ func TestGetQueryCmd(t *testing.T) {
 
 	// Test that subcommands are properly added
 	subCommands := cmd.Commands()
-	require.Len(t, subCommands, 1)
+	require.Len(t, subCommands, 2)
 
 	// Verify the params subcommand is present
-	paramsCmd := subCommands[0]
-	require.Equal(t, "params", paramsCmd.Use)
-	require.Equal(t, "Query the module's parameters", paramsCmd.Short)
+	paramsCommand, _, err := cmd.Find([]string{"params"})
+	require.NoError(t, err)
+	require.Equal(t, "params", paramsCommand.Use)
+	require.Equal(t, "Query the module's parameters", paramsCommand.Short)
 }
 
 // TestParamsCmd tests the params command creation and structure
@@ -193,9 +194,10 @@ func TestCommandIntegration(t *testing.T) {
 	// Verify that the subcommand returned by paramsCmd() has the same structure
 	// as the one added to the main command
 	subCommands := mainCmd.Commands()
-	require.Len(t, subCommands, 1)
+	require.Len(t, subCommands, 2)
 
-	addedParamsCmd := subCommands[0]
+	addedParamsCmd, _, err := mainCmd.Find([]string{"params"})
+	require.NoError(t, err)
 	require.Equal(t, paramsSubCmd.Use, addedParamsCmd.Use)
 	require.Equal(t, paramsSubCmd.Short, addedParamsCmd.Short)
 }
@@ -251,9 +253,10 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// Verify subcommand structure
 	subCommands := mainCmd.Commands()
-	require.Len(t, subCommands, 1)
+	require.Len(t, subCommands, 2)
 
-	paramsCmd := subCommands[0]
+	paramsCmd, _, findErr := mainCmd.Find([]string{"params"})
+	require.NoError(t, findErr)
 	require.Equal(t, "params", paramsCmd.Use)
 
 	// Verify the params command has proper structure
@@ -311,8 +314,10 @@ func TestGetQueryCmdStructure(t *testing.T) {
 
 	// Test subcommands
 	subCmds := cmd.Commands()
-	require.Len(t, subCmds, 1)
-	require.Equal(t, "params", subCmds[0].Use)
+	require.Len(t, subCmds, 2)
+	paramsSubCmd, _, err := cmd.Find([]string{"params"})
+	require.NoError(t, err)
+	require.Equal(t, "params", paramsSubCmd.Use)
 }
 
 // TestQueryParamsFunctionSignature tests that queryParams has the correct signature

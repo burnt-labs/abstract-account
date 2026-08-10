@@ -36,7 +36,8 @@ func TestQueryParamsIntegration(t *testing.T) {
 
 	t.Run("successful queryParams execution with client context", func(t *testing.T) {
 		// Create the params command to test the actual function assignment
-		paramsCmd := cli.GetQueryCmd().Commands()[0]
+		paramsCmd, _, findErr := cli.GetQueryCmd().Find([]string{"params"})
+		require.NoError(t, findErr)
 		require.NotNil(t, paramsCmd.RunE)
 
 		// Set proper context with client context
@@ -55,9 +56,10 @@ func TestQueryParamsIntegration(t *testing.T) {
 		require.NotNil(t, queryCmd)
 
 		subCommands := queryCmd.Commands()
-		require.Len(t, subCommands, 1)
+		require.Len(t, subCommands, 2)
 
-		paramsSubCmd := subCommands[0]
+		paramsSubCmd, _, findErr := queryCmd.Find([]string{"params"})
+		require.NoError(t, findErr)
 		require.Equal(t, "params", paramsSubCmd.Use)
 		require.NotNil(t, paramsSubCmd.RunE)
 
@@ -84,9 +86,10 @@ func TestQueryCmdStructureIntegration(t *testing.T) {
 
 	// Test that subcommands are created with proper structure
 	subCommands := queryCmd.Commands()
-	require.Len(t, subCommands, 1)
+	require.Len(t, subCommands, 2)
 
-	paramsCmd := subCommands[0]
+	paramsCmd, _, findErr := queryCmd.Find([]string{"params"})
+	require.NoError(t, findErr)
 	require.Equal(t, "params", paramsCmd.Use)
 	require.Equal(t, "Query the module's parameters", paramsCmd.Short)
 	require.NotNil(t, paramsCmd.RunE)
@@ -126,7 +129,8 @@ func TestParamsCmdExecutionWithClientContext(t *testing.T) {
 
 	// Get the params command
 	queryCmd := cli.GetQueryCmd()
-	paramsCmd := queryCmd.Commands()[0]
+	paramsCmd, _, findErr := queryCmd.Find([]string{"params"})
+	require.NoError(t, findErr)
 
 	// Set proper context
 	paramsCmd.SetContext(context.WithValue(context.Background(), client.ClientContextKey, &clientCtx))

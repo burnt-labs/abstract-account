@@ -8,7 +8,10 @@ option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/ty
 // EventAccountRegistered is emitted when an AbstractAccount is registered.
 message EventAccountRegistered {
   string creator       = 1;
+  // CodeID is the caller-selected implementation active after registration.
   uint64 code_id       = 2 [(gogoproto.customname) = "CodeID"];
   string contract_addr = 3;
   uint64 account_number = 4;
+  reserved 5;
+  bytes address_derivation_hash = 6 [(gogoproto.customname) = "AddressDerivationHash"];
 }

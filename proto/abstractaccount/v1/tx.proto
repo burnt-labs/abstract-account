@@ -41,7 +41,8 @@ message MsgRegisterAccount {
   // Sender is the actor who signs the message
   string sender  = 1;
 
-  // CodeID indicates which wasm binary code is to be used for this contract
+  // CodeID selects the allowed implementation installed after deterministic
+  // direct instantiation. It does not participate in address derivation.
   uint64 code_id = 2 [(gogoproto.customname) = "CodeID"];
 
   // Msg is the JSON-encoded instantiate message for the contract

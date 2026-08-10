@@ -9,4 +9,12 @@ option go_package = "github.com/burnt-labs/abstract-account/x/abstractaccount/ty
 message GenesisState {
   Params params          = 1;
   uint64 next_account_id = 2;
+  repeated AccountAddress account_addresses = 3;
+}
+
+// AccountAddress is an exported sender/salt registry entry.
+message AccountAddress {
+  string sender = 1;
+  bytes salt = 2;
+  string address = 3;
 }
