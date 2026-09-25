@@ -40,8 +40,12 @@ The proof of concept should run against a **locally running XION node configured
 with mainnet parameters**, with the attack executed via standard transaction
 broadcast (`BroadcastTxSync` or equivalent). Broadcast acceptance alone is not
 sufficient: show inclusion in a block, the successful execution result, and the
-resulting state change or security impact. Simulated environments that model
-chain state without running a full node do not demonstrate exploitability.
+resulting state change or security impact. For chain-halt or consensus-failure
+findings, instead show the triggering transaction or input sequence, the height
+or round at which progress stops or diverges, and the observed halt or failure
+condition; block inclusion and successful execution are not required when the
+failure prevents them. Simulated environments that model chain state without
+running a full node do not demonstrate exploitability.
 
 ## Authentication Impact Scope
 
@@ -113,7 +117,7 @@ legitimately control, or to test with production privileges they do control.
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **CRITICAL** | Complete bypass of abstract account authentication enabling arbitrary transaction authorization against pre-existing funded accounts |
 | **HIGH**     | Theft or freezing of funds affecting individual accounts. Authentication bypass with demonstrated exploitability against an existing account |
-| **MEDIUM**   | Partial authentication bypass requiring secondary conditions. Impact limited to accounts created after the attack. Attacks requiring privileged-party cooperation |
+| **MEDIUM**   | Partial authentication bypass requiring secondary conditions. Impact limited to accounts created after the attack. Privileged-party cooperation where the demonstrated impact uses authority the role already has (see Privileged Actor Policy) |
 | **LOW**      | Valid, reproducible code-level issue with no direct risk to funds, representing a meaningful hardening opportunity                   |
 
 Only **High** and **Critical** findings are reward eligible. The canonical
