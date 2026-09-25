@@ -62,13 +62,12 @@ on a **pre-existing funded account**, using only attacker-controlled keys.
 
 ## Permissioned Chain Policy
 
-XION mainnet operates with `code_upload_access: Nobody`. Uploading new contract
-code requires governance approval. An attack against this repository that
-depends on uploading new attacker-controlled contract code to mainnet is out of
-scope. A finding against the abstract account module or authenticator contract
-infrastructure in this repository that is exploitable through code already
-approved for mainnet is not excluded by this rule, including when the proof of
-concept instantiates or controls a new contract from an approved code ID.
+XION mainnet operates with `code_upload_access: Nobody`. Contract deployment
+requires a governance proposal.
+
+Any attack vector requiring an attacker to deploy a malicious contract on
+mainnet is out of scope, regardless of technical validity — including
+authenticator contracts the attacker would need to deploy themselves.
 
 ## Privileged Actor Policy
 
@@ -100,8 +99,7 @@ legitimately control, or to test with production privileges they do control.
 
 **Vulnerability classes**
 
-- Attacks against this repository requiring new attacker-controlled contract
-  code to be uploaded to mainnet
+- Attacks requiring malicious contract deployment on mainnet
 - Denial of service of any form recoverable via a software patch, coordinated
   validator restart, or governance parameter update
 - Governance attacks requiring a malicious proposal to pass
