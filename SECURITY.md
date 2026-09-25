@@ -70,7 +70,8 @@ authenticator contracts the attacker would need to deploy themselves.
 Findings are classified at **Medium at most** when the attack must begin with
 control of governance, a module authority, validator or operator credentials,
 or another privileged role — or requires that holder to cooperate — and the
-demonstrated action is already within that role's intended authority.
+demonstrated impact depends on that holder acting self-destructively, outside
+normal operation, or in collusion while using authority the role already has.
 
 The cap does not apply when a flaw lets an attacker who starts without that
 privilege obtain it or bypass its authorization check, or lets a legitimately
