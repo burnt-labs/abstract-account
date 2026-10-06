@@ -1,5 +1,12 @@
 # abstract-account
 
+> [!IMPORTANT]
+> **This repository was archived on 2026-10-06 and is no longer maintained.**
+>
+> The `x/abstractaccount` module now lives in [burnt-labs/xion](https://github.com/burnt-labs/xion) under [`x/abstractaccount`](https://github.com/burnt-labs/xion/tree/main/x/abstractaccount). XION v31 and later build it from that tree and no longer depend on this module; v30 was the last release to require it (`v0.1.5`). Make changes and report issues in burnt-labs/xion.
+>
+> Existing tags (`v0.1.0` to `v0.1.8`) remain available for historical builds.
+
 An account abstraction solution for [CosmWasm][1]-enabled chains
 
 ## Background
